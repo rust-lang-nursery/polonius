@@ -31,11 +31,18 @@ pub(super) fn compute<T: FactTypes>(
         let placeholder_loan = &ctx.placeholder_loan;
         let known_contains = &ctx.known_contains;
 
+        // subset(Origin1, Origin2) :-
+        //   subset_base(Origin1, Origin2, _).
+        let subset = Relation::from_iter(
+            ctx.subset_base
+                .iter()
+                .map(|&(origin1, origin2, _point)| (origin1, origin2)),
+        );
+
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
 
         // .. some variables, ..
-        let subset = iteration.variable::<(T::Origin, T::Origin)>("subset");
         let origin_contains_loan_on_entry =
             iteration.variable::<(T::Origin, T::Loan)>("origin_contains_loan_on_entry");
 
@@ -44,14 +51,6 @@ pub(super) fn compute<T: FactTypes>(
             iteration.variable::<(T::Origin, T::Origin)>("potential_subset_errors");
 
         // load initial facts.
-
-        // subset(origin1, origin2) :-
-        //   subset_base(origin1, origin2, _point).
-        subset.extend(
-            ctx.subset_base
-                .iter()
-                .map(|&(origin1, origin2, _point)| (origin1, origin2)),
-        );
 
         // origin_contains_loan_on_entry(origin, loan) :-
         //   loan_issued_at(origin, loan, _point).
@@ -122,7 +121,6 @@ pub(super) fn compute<T: FactTypes>(
         }
 
         if result.dump_enabled {
-            let subset = subset.complete();
             for &(origin1, origin2) in subset.iter() {
                 result
                     .subset_anywhere

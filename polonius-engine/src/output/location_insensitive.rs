@@ -146,7 +146,7 @@ pub(super) fn compute<T: FactTypes>(
     };
 
     info!(
-        "location_insensitive is complete: {} `potential_errors` tuples, {} `potential_subset_errors` tuples, {:?}",
+        "analysis done: {} `potential_errors` tuples, {} `potential_subset_errors` tuples, {:?}",
         potential_errors.len(),
         potential_subset_errors.len(),
         timer.elapsed()

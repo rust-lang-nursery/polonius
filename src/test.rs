@@ -5,7 +5,7 @@ use crate::facts::{AllFacts, Loan, Origin, Point};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
-use crate::test_util::{assert_equal, check_program};
+use crate::test_util::{assert_equal, location_insensitive_checker_for, naive_checker_for};
 use polonius_engine::Algorithm;
 use rustc_hash::FxHashMap;
 use std::error::Error;
@@ -37,6 +37,34 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
                     "naive analysis had errors at `{:?}` but insensitive analysis did not \
                      (loans = {:#?})",
                     naive_point, naive_loans,
+                );
+            }
+        }
+    }
+
+    // Check that the "naive subset errors" are a subset of the "insensitive ones".
+    for (naive_point, naive_origins) in &naive.subset_errors {
+        // Potential location-insensitive errors don't have a meaningful location, and use 0
+        // as a default when debugging.
+        match insensitive.subset_errors.get(&0.into()) {
+            Some(insensitive_origins) => {
+                for &(origin1, origin2) in naive_origins {
+                    if !insensitive_origins.contains(&(origin1, origin2)) {
+                        panic!(
+                            "naive analysis had subset error for `{:?}` <: `{:?}` at `{:?}` \
+                             but insensitive analysis did not \
+                             (origins = {:#?})",
+                            origin1, origin2, naive_point, insensitive_origins,
+                        );
+                    }
+                }
+            }
+
+            None => {
+                panic!(
+                    "naive analysis had subset errors at `{:?}` but insensitive analysis did not \
+                     (origins = {:#?})",
+                    naive_point, naive_origins,
                 );
             }
         }
@@ -542,7 +570,7 @@ fn illegal_subset_error() {
         }
     ";
 
-    let mut checker = check_program(program, Algorithm::Naive, true);
+    let mut checker = naive_checker_for(program);
 
     assert_eq!(checker.facts.universal_region.len(), 2);
     assert_eq!(checker.facts.placeholder.len(), 2);
@@ -553,6 +581,10 @@ fn illegal_subset_error() {
     // ...so there should be an error here about the missing `'b: 'a` subset
     assert_eq!(checker.subset_errors_count(), 1);
     assert!(checker.subset_error_exists("'b", "'a", "\"Mid(B0[0])\""));
+
+    // and in the location-insensitive results as well
+    assert!(location_insensitive_checker_for(program)
+        .location_insensitive_subset_error_exists("'b", "'a",));
 }
 
 /// This is the same test as the `illegal_subset_error` one, but specifies the `'b: 'a` subset
@@ -570,13 +602,17 @@ fn known_placeholder_origin_subset() {
         }
     ";
 
-    let checker = check_program(program, Algorithm::Naive, true);
+    let checker = naive_checker_for(program);
 
     assert_eq!(checker.facts.universal_region.len(), 2);
     assert_eq!(checker.facts.placeholder.len(), 2);
     assert_eq!(checker.facts.known_subset.len(), 1);
 
     assert_eq!(checker.subset_errors_count(), 0);
+    assert_eq!(
+        location_insensitive_checker_for(program).subset_errors_count(),
+        0
+    );
 }
 
 /// This test ensures `known_subset`s are handled transitively: a known subset `'a: 'c` should be
@@ -594,7 +630,7 @@ fn transitive_known_subset() {
         }
     ";
 
-    let checker = check_program(program, Algorithm::Naive, true);
+    let checker = naive_checker_for(program);
 
     assert_eq!(checker.facts.universal_region.len(), 3);
     assert_eq!(checker.facts.placeholder.len(), 3);
@@ -604,6 +640,10 @@ fn transitive_known_subset() {
     assert_eq!(checker.output.known_contains.len(), 3);
 
     assert_eq!(checker.subset_errors_count(), 0);
+    assert_eq!(
+        location_insensitive_checker_for(program).subset_errors_count(),
+        0
+    );
 }
 
 /// Even if `'a: 'b` is known, `'a`'s placeholder loan can flow into `'b''s supersets,
@@ -619,22 +659,32 @@ fn transitive_illegal_subset_error() {
             loan_issued_at('x, L0),
               outlives('a: 'x),
               outlives('x: 'b);
-            // creates an unknown transitive `'a: 'c` subset
+
+            // creates unknown transitive subsets:
+            // - `'b: 'c`
+            // - and therefore `'a: 'c` 
             loan_issued_at('y, L1),
               outlives('b: 'y),
               outlives('y: 'c);
         }
     ";
 
-    let mut checker = check_program(program, Algorithm::Naive, true);
+    let mut checker = naive_checker_for(program);
 
     assert_eq!(checker.facts.universal_region.len(), 3);
     assert_eq!(checker.facts.placeholder.len(), 3);
     assert_eq!(checker.facts.known_subset.len(), 1);
 
-    // there should be an error here about the missing `'a: 'c` subset
-    assert_eq!(checker.subset_errors_count(), 1);
+    // There should be 2 errors here about the missing `'b: 'c` and `'a: 'c` subsets.
+    assert_eq!(checker.subset_errors_count(), 2);
+    assert!(checker.subset_error_exists("'b", "'c", "\"Mid(B0[1])\""));
     assert!(checker.subset_error_exists("'a", "'c", "\"Mid(B0[1])\""));
+
+    // And similarly in the location-insensitive analysis.
+    let mut checker = location_insensitive_checker_for(program);
+    assert_eq!(checker.subset_errors_count(), 2);
+    assert!(checker.location_insensitive_subset_error_exists("'b", "'c"));
+    assert!(checker.location_insensitive_subset_error_exists("'a", "'c"));
 }
 
 #[test]
@@ -651,9 +701,13 @@ fn successes_in_subset_relations_dataset() {
         let tables = &mut intern::InternerTables::new();
         let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
-        let result = Output::compute(&facts, Algorithm::Naive, true);
-        assert!(result.errors.is_empty());
-        assert!(result.subset_errors.is_empty());
+        let naive = Output::compute(&facts, Algorithm::Naive, true);
+        assert!(naive.errors.is_empty());
+        assert!(naive.subset_errors.is_empty());
+
+        let insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
+        assert!(insensitive.errors.is_empty());
+        assert!(insensitive.subset_errors.is_empty());
     }
 }
 
@@ -668,25 +722,40 @@ fn errors_in_subset_relations_dataset() {
     let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
     // this function has no illegal access errors, but one subset error, over 3 points
-    let result = Output::compute(&facts, Algorithm::Naive, true);
-    assert!(result.errors.is_empty());
-    assert_eq!(result.subset_errors.len(), 3);
+    let naive = Output::compute(&facts, Algorithm::Naive, true);
+    assert!(naive.errors.is_empty());
+    assert_eq!(naive.subset_errors.len(), 3);
 
-    let points = ["\"Mid(bb0[0])\"", "\"Start(bb0[1])\"", "\"Mid(bb0[1])\""];
-    for point in &points {
-        let point = tables.points.intern(point);
-        let subset_error = result.subset_errors.get(&point).unwrap();
-
+    let expected_subset_error = {
         // in this dataset, `'a` is interned as `'1`
         let origin_a = Origin::from(1);
 
         // `'b` is interned as `'2`
         let origin_b = Origin::from(2);
 
-        // and there should be a `'b: 'a` known subset to make the function valid, so
-        // that is the subset error we should find
-        assert!(subset_error.contains(&(origin_b, origin_a)));
+        // and `'b` should flow into `'a`
+        (origin_b, origin_a)
+    };
+
+    let points = ["\"Mid(bb0[0])\"", "\"Start(bb0[1])\"", "\"Mid(bb0[1])\""];
+    for point in &points {
+        let point = tables.points.intern(point);
+        let subset_error = naive.subset_errors.get(&point).unwrap();
+
+        // There should be a `'b: 'a` known subset to make the function valid, so
+        // that is the subset error we should find.
+        assert!(subset_error.contains(&expected_subset_error));
     }
+
+    // Similarly, this single subset error should also be found by the
+    // location-insensitive analysis.
+    let insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
+    assert!(insensitive.errors.is_empty());
+    assert_eq!(insensitive.subset_errors.len(), 1);
+
+    let insensitive_subset_errors = insensitive.subset_errors.values().next().unwrap();
+    assert_eq!(insensitive_subset_errors.len(), 1);
+    assert!(insensitive_subset_errors.contains(&expected_subset_error));
 }
 
 // There's only a single successful test in the dataset for now, but the structure of this test
@@ -705,10 +774,15 @@ fn successes_in_move_errors_dataset() {
         let tables = &mut intern::InternerTables::new();
         let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
-        let result = Output::compute(&facts, Algorithm::Naive, true);
-        assert!(result.errors.is_empty());
-        assert!(result.subset_errors.is_empty());
-        assert!(result.move_errors.is_empty());
+        let naive = Output::compute(&facts, Algorithm::Naive, true);
+        assert!(naive.errors.is_empty());
+        assert!(naive.subset_errors.is_empty());
+        assert!(naive.move_errors.is_empty());
+
+        let insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
+        assert!(insensitive.errors.is_empty());
+        assert!(insensitive.subset_errors.is_empty());
+        assert!(insensitive.move_errors.is_empty());
     }
 }
 

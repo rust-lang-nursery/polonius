@@ -52,8 +52,8 @@ pub(super) fn compute<T: FactTypes>(
 
         // load initial facts.
 
-        // origin_contains_loan_on_entry(origin, loan) :-
-        //   loan_issued_at(origin, loan, _point).
+        // origin_contains_loan_on_entry(Origin, Loan) :-
+        //   loan_issued_at(Origin, Loan, _).
         origin_contains_loan_on_entry.extend(
             ctx.loan_issued_at
                 .iter()
@@ -70,9 +70,9 @@ pub(super) fn compute<T: FactTypes>(
 
         // .. and then start iterating rules!
         while iteration.changed() {
-            // origin_contains_loan_on_entry(origin2, loan) :-
-            //   origin_contains_loan_on_entry(origin1, loan),
-            //   subset(origin1, origin2).
+            // origin_contains_loan_on_entry(Origin2, Loan) :-
+            //   origin_contains_loan_on_entry(Origin1, Loan),
+            //   subset(Origin1, Origin2).
             //
             // Note: Since `subset` is effectively a static input, this join can be ported to
             // a leapjoin. Doing so, however, was 7% slower on `clap`.
@@ -82,13 +82,13 @@ pub(super) fn compute<T: FactTypes>(
                 |&_origin1, &loan, &origin2| (origin2, loan),
             );
 
-            // loan_live_at(loan, point) :-
-            //   origin_contains_loan_on_entry(origin, loan),
-            //   origin_live_on_entry(origin, point)
+            // loan_live_at(Loan, Point) :-
+            //   origin_contains_loan_on_entry(Origin, Loan),
+            //   origin_live_on_entry(Origin, Point)
             //
-            // potential_errors(loan, point) :-
-            //   loan_invalidated_at(loan, point),
-            //   loan_live_at(loan, point).
+            // potential_errors(Loan, Point) :-
+            //   loan_invalidated_at(Loan, Point),
+            //   loan_live_at(Loan, Point).
             //
             // Note: we don't need to materialize `loan_live_at` here
             // so we can inline it in the `potential_errors` relation.

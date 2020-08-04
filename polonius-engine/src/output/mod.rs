@@ -132,6 +132,11 @@ struct Context<'ctx, T: FactTypes> {
     placeholder_origin: Relation<(T::Origin, ())>,
     placeholder_loan: Relation<(T::Loan, T::Origin)>,
 
+    // The `known_subset` relation in the facts does not necessarily contain all the transitive
+    // subsets. The transitive closure is always needed, so this version here is fully closed
+    // over.
+    known_subset: Relation<(T::Origin, T::Origin)>,
+
     // while this static input is unused by `LocationInsensitive`, it's depended on by initialization
     // and liveness, so already computed by the time we get to borrowcking.
     cfg_edge: Relation<(T::Point, T::Point)>,
@@ -241,6 +246,9 @@ impl<T: FactTypes> Output<T> {
         let known_contains =
             Output::<T>::compute_known_contains(&known_subset, &all_facts.placeholder);
 
+        // Fully close over the `known_subset` relation.
+        let known_subset = Output::<T>::compute_known_subset(&known_subset);
+
         let placeholder_origin: Relation<_> = Relation::from_iter(
             all_facts
                 .universal_region
@@ -265,45 +273,32 @@ impl<T: FactTypes> Output<T> {
             loan_issued_at: &all_facts.loan_issued_at,
             loan_killed_at,
             known_contains,
+            known_subset,
             placeholder_origin,
             placeholder_loan,
             potential_errors: None,
             potential_subset_errors: None,
         };
 
-        let errors = match algorithm {
+        let (errors, subset_errors) = match algorithm {
             Algorithm::LocationInsensitive => {
                 let (potential_errors, potential_subset_errors) =
                     location_insensitive::compute(&ctx, &mut result);
 
                 // Note: the error location is meaningless for a location-insensitive
                 // subset error analysis. This is acceptable here as this variant is not one
-                // which should be used directly besides for debugging, the `Hybrid` variant will
+                // which should be used directly besides debugging, the `Hybrid` variant will
                 // take advantage of its result.
-                for &(origin1, origin2) in potential_subset_errors.iter() {
-                    result
-                        .subset_errors
-                        .entry(0.into())
-                        .or_default()
-                        .insert((origin1, origin2));
-                }
+                let potential_subset_errors: Relation<(T::Origin, T::Origin, T::Point)> =
+                    Relation::from_iter(
+                        potential_subset_errors
+                            .into_iter()
+                            .map(|&(origin1, origin2)| (origin1, origin2, 0.into())),
+                    );
 
-                potential_errors
+                (potential_errors, potential_subset_errors)
             }
-            Algorithm::Naive => {
-                let (errors, subset_errors) = naive::compute(&ctx, &mut result);
-
-                // Record illegal subset errors
-                for &(origin1, origin2, location) in subset_errors.iter() {
-                    result
-                        .subset_errors
-                        .entry(location)
-                        .or_default()
-                        .insert((origin1, origin2));
-                }
-
-                errors
-            }
+            Algorithm::Naive => naive::compute(&ctx, &mut result),
             Algorithm::DatafrogOpt => datafrog_opt::compute(&ctx, &mut result),
             Algorithm::Hybrid => {
                 // Execute the fast `LocationInsensitive` computation as a pre-pass:
@@ -313,7 +308,9 @@ impl<T: FactTypes> Output<T> {
                     location_insensitive::compute(&ctx, &mut result);
 
                 if potential_errors.is_empty() && potential_subset_errors.is_empty() {
-                    potential_errors
+                    // There are no loan errors, nor subset errors, we can early return
+                    // empty errors lists and avoid doing the heavy analysis.
+                    (potential_errors, Vec::new().into())
                 } else {
                     // Record these potential errors as they can be used to limit the next
                     // variant's work to only these loans.
@@ -326,8 +323,8 @@ impl<T: FactTypes> Output<T> {
             }
             Algorithm::Compare => {
                 // Ensure the `Naive` and `DatafrogOpt` errors are the same
-                let (naive_errors, _) = naive::compute(&ctx, &mut result);
-                let opt_errors = datafrog_opt::compute(&ctx, &mut result);
+                let (naive_errors, naive_subset_errors) = naive::compute(&ctx, &mut result);
+                let (opt_errors, _) = datafrog_opt::compute(&ctx, &mut result);
 
                 // TODO: compare illegal subset relations errors as well here ?
 
@@ -357,13 +354,22 @@ impl<T: FactTypes> Output<T> {
                     debug!("Naive and optimized algorithms reported the same errors.");
                 }
 
-                naive_errors
+                (naive_errors, naive_subset_errors)
             }
         };
 
         // Record illegal access errors
         for &(loan, location) in errors.iter() {
             result.errors.entry(location).or_default().push(loan);
+        }
+
+        // Record illegal subset errors
+        for &(origin1, origin2, location) in subset_errors.iter() {
+            result
+                .subset_errors
+                .entry(location)
+                .or_default()
+                .insert((origin1, origin2));
         }
 
         // Record more debugging info when asked to do so
@@ -413,6 +419,34 @@ impl<T: FactTypes> Output<T> {
         }
 
         known_contains.complete()
+    }
+
+    /// Computes the transitive closure of the `known_subset` relation.
+    fn compute_known_subset(
+        known_subset: &Relation<(T::Origin, T::Origin)>,
+    ) -> Relation<(T::Origin, T::Origin)> {
+        use datafrog::{Iteration, RelationLeaper};
+        let mut iteration = Iteration::new();
+
+        let known_subset_base = known_subset;
+        let known_subset = iteration.variable("known_subset");
+
+        // known_subset(Origin1, Origin2) :-
+        //   known_subset_base(Origin1, Origin2).
+        known_subset.extend(known_subset_base.iter());
+
+        while iteration.changed() {
+            // known_subset(Origin1, Origin3) :-
+            //   known_subset(Origin1, Origin2),
+            //   known_subset_base(Origin2, Origin3).
+            known_subset.from_leapjoin(
+                &known_subset,
+                known_subset_base.extend_with(|&(_origin1, origin2)| origin2),
+                |&(origin1, _origin2), &origin3| (origin1, origin3),
+            );
+        }
+
+        known_subset.complete()
     }
 
     fn new(dump_enabled: bool) -> Self {

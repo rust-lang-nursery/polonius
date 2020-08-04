@@ -29,11 +29,9 @@ pub(super) fn compute<T: FactTypes>(
         // Static inputs
         let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
         let cfg_edge_rel = &ctx.cfg_edge;
-        let cfg_node = ctx.cfg_node;
         let loan_killed_at = &ctx.loan_killed_at;
-        let known_contains = &ctx.known_contains;
+        let known_subset = &ctx.known_subset;
         let placeholder_origin = &ctx.placeholder_origin;
-        let placeholder_loan = &ctx.placeholder_loan;
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -65,6 +63,10 @@ pub(super) fn compute<T: FactTypes>(
         let errors = iteration.variable("errors");
         let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
 
+        let subset_placeholder =
+            iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_placeholder");
+        let subset_placeholder_o2p = iteration.variable_indistinct("subset_placeholder_o2p");
+
         // load initial facts.
         subset.extend(ctx.subset_base.iter());
         origin_contains_loan_on_entry.extend(ctx.loan_issued_at.iter());
@@ -78,20 +80,6 @@ pub(super) fn compute<T: FactTypes>(
                 .iter()
                 .map(|&(origin, point)| ((origin, point), ())),
         );
-
-        // Placeholder loans are contained by their placeholder origin at all points of the CFG.
-        //
-        // contains(Origin, Loan, Node) :-
-        //   cfg_node(Node),
-        //   placeholder(Origin, Loan).
-        let mut placeholder_loans = Vec::with_capacity(placeholder_loan.len() * cfg_node.len());
-        for &(loan, origin) in placeholder_loan.iter() {
-            for &node in cfg_node.iter() {
-                placeholder_loans.push((origin, loan, node));
-            }
-        }
-
-        origin_contains_loan_on_entry.extend(placeholder_loans);
 
         // .. and then start iterating rules!
         while iteration.changed() {
@@ -108,6 +96,15 @@ pub(super) fn compute<T: FactTypes>(
                 .borrow_mut()
                 .elements
                 .retain(|&(origin1, origin2, _)| origin1 != origin2);
+
+            subset_placeholder
+                .recent
+                .borrow_mut()
+                .elements
+                .retain(|&(origin1, origin2, _)| origin1 != origin2);
+            subset_placeholder_o2p.from_map(&subset_placeholder, |&(origin1, origin2, point)| {
+                ((origin2, point), origin1)
+            });
 
             // remap fields to re-index by keys.
             subset_o1p.from_map(&subset, |&(origin1, origin2, point)| {
@@ -196,23 +193,45 @@ pub(super) fn compute<T: FactTypes>(
                 |&(loan, point), _, _| (loan, point),
             );
 
-            // subset_errors(Origin1, Origin2, Point) :-
-            //   origin_contains_loan_on_entry(Origin2, Loan1, Point),
-            //   placeholder(Origin2, _),
-            //   placeholder(Origin1, Loan1),
-            //   !known_contains(Origin2, Loan1).
-            subset_errors.from_leapjoin(
-                &origin_contains_loan_on_entry,
+            // subset_placeholder(Origin1, Origin2, Point) :-
+            //   subset(Origin1, Origin2, Point),
+            //   placeholder_origin(Origin1).
+            subset_placeholder.from_leapjoin(
+                &subset_o1p,
                 (
-                    placeholder_origin.filter_with(|&(origin2, _loan1, _point)| (origin2, ())),
-                    placeholder_loan.extend_with(|&(_origin2, loan1, _point)| loan1),
-                    known_contains.filter_anti(|&(origin2, loan1, _point)| (origin2, loan1)),
+                    placeholder_origin.extend_with(|&((origin1, _point), _origin2)| origin1),
                     // remove symmetries:
-                    datafrog::ValueFilter::from(|&(origin2, _loan1, _point), &origin1| {
-                        origin2 != origin1
+                    datafrog::ValueFilter::from(|&((origin1, _point), origin2), _| {
+                        origin1 != origin2
                     }),
                 ),
-                |&(origin2, _loan1, point), &origin1| (origin1, origin2, point),
+                |&((origin1, point), origin2), _| (origin1, origin2, point),
+            );
+
+            // subset_placeholder(Origin1, Origin3, Point) :-
+            //   subset_placeholder(Origin1, Origin2, Point),
+            //   subset(Origin2, Origin3, Point).
+            subset_placeholder.from_join(
+                &subset_placeholder_o2p,
+                &subset_o1p,
+                |&(_origin2, point), &origin1, &origin3| (origin1, origin3, point),
+            );
+
+            // subset_errors(Origin1, Origin2, Point) :-
+            //   subset_placeholder(Origin1, Origin2, Point),
+            //   placeholder_origin(Origin2),
+            //   !known_subset(Origin1, Origin2).
+            subset_errors.from_leapjoin(
+                &subset_placeholder,
+                (
+                    placeholder_origin.extend_with(|&(_origin1, origin2, _point)| origin2),
+                    known_subset.filter_anti(|&(origin1, origin2, _point)| (origin1, origin2)),
+                    // remove symmetries:
+                    datafrog::ValueFilter::from(|&(origin1, origin2, _point), _| {
+                        origin1 != origin2
+                    }),
+                ),
+                |&(origin1, origin2, point), _| (origin1, origin2, point),
             );
         }
 

@@ -138,6 +138,7 @@ struct Context<'ctx, T: FactTypes> {
 
     // Partial results possibly used by other variants as input
     potential_errors: Option<FxHashSet<T::Loan>>,
+    potential_subset_errors: Option<Relation<(T::Origin, T::Origin)>>,
 }
 
 impl<T: FactTypes> Output<T> {
@@ -267,10 +268,28 @@ impl<T: FactTypes> Output<T> {
             placeholder_origin,
             placeholder_loan,
             potential_errors: None,
+            potential_subset_errors: None,
         };
 
         let errors = match algorithm {
-            Algorithm::LocationInsensitive => location_insensitive::compute(&ctx, &mut result),
+            Algorithm::LocationInsensitive => {
+                let (potential_errors, potential_subset_errors) =
+                    location_insensitive::compute(&ctx, &mut result);
+
+                // Note: the error location is meaningless for a location-insensitive
+                // subset error analysis. This is acceptable here as this variant is not one
+                // which should be used directly besides for debugging, the `Hybrid` variant will
+                // take advantage of its result.
+                for &(origin1, origin2) in potential_subset_errors.iter() {
+                    result
+                        .subset_errors
+                        .entry(0.into())
+                        .or_default()
+                        .insert((origin1, origin2));
+                }
+
+                potential_errors
+            }
             Algorithm::Naive => {
                 let (errors, subset_errors) = naive::compute(&ctx, &mut result);
 
@@ -287,21 +306,20 @@ impl<T: FactTypes> Output<T> {
             }
             Algorithm::DatafrogOpt => datafrog_opt::compute(&ctx, &mut result),
             Algorithm::Hybrid => {
-                // WIP: the `LocationInsensitive` variant doesn't compute any illegal subset
-                // relation errors. So using it as a quick pre-filter for illegal accesses
-                // errors will also end up skipping checking for subset errors.
-
                 // Execute the fast `LocationInsensitive` computation as a pre-pass:
                 // if it finds no possible errors, we don't need to do the more complex
                 // computations as they won't find errors either, and we can return early.
-                let potential_errors = location_insensitive::compute(&ctx, &mut result);
-                if potential_errors.is_empty() {
+                let (potential_errors, potential_subset_errors) =
+                    location_insensitive::compute(&ctx, &mut result);
+
+                if potential_errors.is_empty() && potential_subset_errors.is_empty() {
                     potential_errors
                 } else {
                     // Record these potential errors as they can be used to limit the next
                     // variant's work to only these loans.
                     ctx.potential_errors =
                         Some(potential_errors.iter().map(|&(loan, _)| loan).collect());
+                    ctx.potential_subset_errors = Some(potential_subset_errors);
 
                     datafrog_opt::compute(&ctx, &mut result)
                 }

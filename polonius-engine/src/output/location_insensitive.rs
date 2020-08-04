@@ -17,13 +17,19 @@ use crate::output::{Context, Output};
 pub(super) fn compute<T: FactTypes>(
     ctx: &Context<'_, T>,
     result: &mut Output<T>,
-) -> Relation<(T::Loan, T::Point)> {
+) -> (
+    Relation<(T::Loan, T::Point)>,
+    Relation<(T::Origin, T::Origin)>,
+) {
     let timer = Instant::now();
 
-    let potential_errors = {
+    let (potential_errors, potential_subset_errors) = {
         // Static inputs
         let origin_live_on_entry = &ctx.origin_live_on_entry;
         let loan_invalidated_at = &ctx.loan_invalidated_at;
+        let placeholder_origin = &ctx.placeholder_origin;
+        let placeholder_loan = &ctx.placeholder_loan;
+        let known_contains = &ctx.known_contains;
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -34,6 +40,8 @@ pub(super) fn compute<T: FactTypes>(
             iteration.variable::<(T::Origin, T::Loan)>("origin_contains_loan_on_entry");
 
         let potential_errors = iteration.variable::<(T::Loan, T::Point)>("potential_errors");
+        let potential_subset_errors =
+            iteration.variable::<(T::Origin, T::Origin)>("potential_subset_errors");
 
         // load initial facts.
 
@@ -51,6 +59,14 @@ pub(super) fn compute<T: FactTypes>(
             ctx.loan_issued_at
                 .iter()
                 .map(|&(origin, loan, _point)| (origin, loan)),
+        );
+
+        // origin_contains_loan_on_entry(Origin, Loan) :-
+        //   placeholder_loan(Origin, Loan).
+        origin_contains_loan_on_entry.extend(
+            placeholder_loan
+                .iter()
+                .map(|&(loan, origin)| (origin, loan)),
         );
 
         // .. and then start iterating rules!
@@ -86,6 +102,23 @@ pub(super) fn compute<T: FactTypes>(
                 ),
                 |&(_origin, loan), &point| (loan, point),
             );
+
+            // potential_subset_errors(Origin1, Origin2) :-
+            //   placeholder(Origin1, Loan1),
+            //   placeholder(Origin2, _),
+            //   origin_contains_loan_on_entry(Origin2, Loan1),
+            //   !known_contains(Origin2, Loan1).
+            potential_subset_errors.from_leapjoin(
+                &origin_contains_loan_on_entry,
+                (
+                    known_contains.filter_anti(|&(origin2, loan1)| (origin2, loan1)),
+                    placeholder_origin.filter_with(|&(origin2, _loan1)| (origin2, ())),
+                    placeholder_loan.extend_with(|&(_origin2, loan1)| loan1),
+                    // remove symmetries:
+                    datafrog::ValueFilter::from(|&(origin2, _loan1), &origin1| origin2 != origin1),
+                ),
+                |&(origin2, _loan1), &origin1| (origin1, origin2),
+            );
         }
 
         if result.dump_enabled {
@@ -108,14 +141,18 @@ pub(super) fn compute<T: FactTypes>(
             }
         }
 
-        potential_errors.complete()
+        (
+            potential_errors.complete(),
+            potential_subset_errors.complete(),
+        )
     };
 
     info!(
-        "potential_errors is complete: {} tuples, {:?}",
+        "location_insensitive is complete: {} `potential_errors` tuples, {} `potential_subset_errors` tuples, {:?}",
         potential_errors.len(),
+        potential_subset_errors.len(),
         timer.elapsed()
     );
 
-    potential_errors
+    (potential_errors, potential_subset_errors)
 }

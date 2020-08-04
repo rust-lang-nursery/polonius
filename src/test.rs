@@ -5,7 +5,10 @@ use crate::facts::{AllFacts, Loan, Origin, Point};
 use crate::intern;
 use crate::program::parse_from_program;
 use crate::tab_delim;
-use crate::test_util::{assert_equal, location_insensitive_checker_for, naive_checker_for};
+use crate::test_util::{
+    assert_checkers_match, assert_equal, assert_outputs_match, location_insensitive_checker_for,
+    naive_checker_for, opt_checker_for,
+};
 use polonius_engine::Algorithm;
 use rustc_hash::FxHashMap;
 use std::error::Error;
@@ -77,11 +80,15 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
         // TMP: until we reach our correctness goals, deactivate some comparisons between variants
         // assert_equal(&naive.loan_live_at, &opt.loan_live_at);
         assert_equal(&naive.errors, &opt.errors);
+        assert_equal(&naive.subset_errors, &opt.subset_errors);
+        assert_equal(&naive.move_errors, &opt.move_errors);
     }
 
     // The hybrid algorithm gets the same errors as the naive version
     let opt = Output::compute(all_facts, Algorithm::Hybrid, true);
     assert_equal(&naive.errors, &opt.errors);
+    assert_equal(&naive.subset_errors, &opt.subset_errors);
+    assert_equal(&naive.move_errors, &opt.move_errors);
 }
 
 fn test_fn(dir_name: &str, fn_name: &str, algorithm: Algorithm) -> Result<(), Box<dyn Error>> {
@@ -316,22 +323,27 @@ fn smoke_test_errors() {
         let facts = tab_delim::load_tab_delimited_facts(tables, &facts_dir).expect("facts");
 
         let location_insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
+        let naive = Output::compute(&facts, Algorithm::Naive, true);
+        let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
+
+        // We have to find errors with every analysis
         assert!(
             !location_insensitive.errors.is_empty(),
             format!("LocationInsensitive didn't find errors for '{}'", test_fn)
         );
-
-        let naive = Output::compute(&facts, Algorithm::Naive, true);
         assert!(
             !naive.errors.is_empty(),
             format!("Naive didn't find errors for '{}'", test_fn)
         );
-
-        let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
         assert!(
             !opt.errors.is_empty(),
             format!("DatafrogOpt didn't find errors for '{}'", test_fn)
         );
+
+        // But not subset errors...
+        assert!(location_insensitive.subset_errors.is_empty());
+        assert!(naive.subset_errors.is_empty());
+        assert!(opt.subset_errors.is_empty());
     }
 }
 
@@ -581,7 +593,10 @@ fn illegal_subset_error() {
 
     // and in the location-insensitive results as well
     assert!(location_insensitive_checker_for(program)
-        .location_insensitive_subset_error_exists("'b", "'a",));
+        .location_insensitive_subset_error_exists("'b", "'a"));
+
+    // and finally the optimized-variant results should be the same as the naive ones
+    assert_checkers_match(&checker, &opt_checker_for(program));
 }
 
 /// This is the same test as the `illegal_subset_error` one, but specifies the `'b: 'a` subset
@@ -610,6 +625,7 @@ fn known_placeholder_origin_subset() {
         location_insensitive_checker_for(program).subset_errors_count(),
         0
     );
+    assert_checkers_match(&checker, &opt_checker_for(program));
 }
 
 /// This test ensures `known_subset`s are handled transitively: a known subset `'a: 'c` should be
@@ -641,6 +657,7 @@ fn transitive_known_subset() {
         location_insensitive_checker_for(program).subset_errors_count(),
         0
     );
+    assert_checkers_match(&checker, &opt_checker_for(program));
 }
 
 /// Even if `'a: 'b` is known, `'a`'s placeholder loan can flow into `'b''s supersets,
@@ -677,7 +694,10 @@ fn transitive_illegal_subset_error() {
     assert!(checker.subset_error_exists("'b", "'c", "\"Mid(B0[1])\""));
     assert!(checker.subset_error_exists("'a", "'c", "\"Mid(B0[1])\""));
 
-    // And similarly in the location-insensitive analysis.
+    // The optimized analysis results should be the same as the naive one's.
+    assert_checkers_match(&checker, &opt_checker_for(program));
+
+    // And the location-insensitive analysis should have the same errors, without a location.
     let mut checker = location_insensitive_checker_for(program);
     assert_eq!(checker.subset_errors_count(), 2);
     assert!(checker.location_insensitive_subset_error_exists("'b", "'c"));
@@ -705,6 +725,10 @@ fn successes_in_subset_relations_dataset() {
         let insensitive = Output::compute(&facts, Algorithm::LocationInsensitive, true);
         assert!(insensitive.errors.is_empty());
         assert!(insensitive.subset_errors.is_empty());
+
+        let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
+        assert!(opt.errors.is_empty());
+        assert!(opt.subset_errors.is_empty());
     }
 }
 
@@ -753,6 +777,10 @@ fn errors_in_subset_relations_dataset() {
     let insensitive_subset_errors = insensitive.subset_errors.values().next().unwrap();
     assert_eq!(insensitive_subset_errors.len(), 1);
     assert!(insensitive_subset_errors.contains(&expected_subset_error));
+
+    // And the optimized analysis results should be the same as the naive one's.
+    let opt = Output::compute(&facts, Algorithm::Naive, true);
+    assert_outputs_match(&naive, &opt);
 }
 
 // There's only a single successful test in the dataset for now, but the structure of this test
@@ -780,6 +808,11 @@ fn successes_in_move_errors_dataset() {
         assert!(insensitive.errors.is_empty());
         assert!(insensitive.subset_errors.is_empty());
         assert!(insensitive.move_errors.is_empty());
+
+        let opt = Output::compute(&facts, Algorithm::DatafrogOpt, true);
+        assert!(opt.errors.is_empty());
+        assert!(opt.subset_errors.is_empty());
+        assert!(opt.move_errors.is_empty());
     }
 }
 

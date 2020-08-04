@@ -126,7 +126,6 @@ struct Context<'ctx, T: FactTypes> {
     loan_issued_at: &'ctx Vec<(T::Origin, T::Loan, T::Point)>,
 
     // static inputs used by variants other than `LocationInsensitive`
-    cfg_node: &'ctx BTreeSet<T::Point>,
     loan_killed_at: Relation<(T::Loan, T::Point)>,
     known_contains: Relation<(T::Origin, T::Loan)>,
     placeholder_origin: Relation<(T::Origin, ())>,
@@ -268,7 +267,6 @@ impl<T: FactTypes> Output<T> {
             origin_live_on_entry,
             loan_invalidated_at,
             cfg_edge,
-            cfg_node: &cfg_node,
             subset_base: &all_facts.subset_base,
             loan_issued_at: &all_facts.loan_issued_at,
             loan_killed_at,

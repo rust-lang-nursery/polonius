@@ -84,11 +84,6 @@ pub(super) fn compute<T: FactTypes>(
                 .map(|&(origin, point)| ((origin, point), ())),
         );
 
-        // variable and index to compute the subsets of placeholders
-        let subset_placeholder =
-            iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_placeholder");
-        let subset_placeholder_o2p = iteration.variable_indistinct("subset_placeholder_o2p");
-
         // output relations: illegal accesses errors, and illegal subset relations errors
         let errors = iteration.variable("errors");
         let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
@@ -123,21 +118,11 @@ pub(super) fn compute<T: FactTypes>(
                 .elements
                 .retain(|&(origin1, origin2, _)| origin1 != origin2);
 
-            subset_placeholder
-                .recent
-                .borrow_mut()
-                .elements
-                .retain(|&(origin1, origin2, _)| origin1 != origin2);
-
             // Remap fields to re-index by keys, to prepare the data needed by the rules below.
             subset_o1p.from_map(&subset, |&(origin1, origin2, point)| {
                 ((origin1, point), origin2)
             });
             subset_o2p.from_map(&subset, |&(origin1, origin2, point)| {
-                ((origin2, point), origin1)
-            });
-
-            subset_placeholder_o2p.from_map(&subset_placeholder, |&(origin1, origin2, point)| {
                 ((origin2, point), origin1)
             });
 
@@ -223,6 +208,9 @@ pub(super) fn compute<T: FactTypes>(
             // Here again, this join acts as a pure filter and could be a more efficient leapjoin.
             // However, similarly to the `origin_live_on_entry` example described above, the
             // leapjoin with a single `filter_with` leaper would currently not be well-formed.
+            // We don't explictly need to materialize `loan_live_at` either, and that doesn't
+            // change the well-formedness situation, so we still materialize it (since that also
+            // helps in testing).
             //
             // errors(Loan, Point) :-
             //   loan_invalidated_at(Loan, Point),
@@ -233,44 +221,20 @@ pub(super) fn compute<T: FactTypes>(
                 |&(loan, point), _, _| (loan, point),
             );
 
-            // Rule 9: compute the subsets of the placeholder origins, at a given point.
-            //
-            // subset_placeholder(Origin1, Origin2, Point) :-
-            //   subset(Origin1, Origin2, Point),
-            //   placeholder_origin(Origin1).
-            subset_placeholder.from_leapjoin(
-                &subset_o1p,
-                (
-                    placeholder_origin.extend_with(|&((origin1, _point), _origin2)| origin1),
-                    // remove symmetries:
-                    datafrog::ValueFilter::from(|&((origin1, _point), origin2), _| {
-                        origin1 != origin2
-                    }),
-                ),
-                |&((origin1, point), origin2), _| (origin1, origin2, point),
-            );
-
-            // Rule 10: compute the subset transitive closure of placeholder origins.
-            //
-            // subset_placeholder(Origin1, Origin3, Point) :-
-            //   subset_placeholder(Origin1, Origin2, Point),
-            //   subset(Origin2, Origin3, Point).
-            subset_placeholder.from_join(
-                &subset_placeholder_o2p,
-                &subset_o1p,
-                |&(_origin2, point), &origin1, &origin3| (origin1, origin3, point),
-            );
-
-            // Rule 11: compute illegal subset relations errors, i.e. the undeclared subsets
+            // Rule 9: compute illegal subset relations errors, i.e. the undeclared subsets
             // between two placeholder origins.
+            // Here as well, WF-ness prevents this join from being a filter-only leapjoin. It
+            // doesn't matter much, as `placeholder_origin` is single-value relation.
             //
-            // subset_errors(Origin1, Origin2, Point) :-
-            //   subset_placeholder(Origin1, Origin2, Point),
+            // subset_error(Origin1, Origin2, Point) :-
+            //   subset(Origin1, Origin2, Point),
+            //   placeholder_origin(Origin1),
             //   placeholder_origin(Origin2),
             //   !known_subset(Origin1, Origin2).
             subset_errors.from_leapjoin(
-                &subset_placeholder,
+                &subset,
                 (
+                    placeholder_origin.extend_with(|&(origin1, _origin2, _point)| origin1),
                     placeholder_origin.extend_with(|&(_origin1, origin2, _point)| origin2),
                     known_subset.filter_anti(|&(origin1, origin2, _point)| (origin1, origin2)),
                     // remove symmetries:

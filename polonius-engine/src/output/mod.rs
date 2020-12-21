@@ -131,13 +131,13 @@ struct Context<'ctx, T: FactTypes> {
     placeholder_origin: Relation<(T::Origin, ())>,
     placeholder_loan: Relation<(T::Loan, T::Origin)>,
 
-    // The `known_subset` relation in the facts does not necessarily contain all the transitive
-    // subsets. The transitive closure is always needed, so this version here is fully closed
-    // over.
-    known_subset: Relation<(T::Origin, T::Origin)>,
+    // The `known_placeholder_subset` relation in the facts does not necessarily contain all the
+    // transitive subsets. The transitive closure is always needed, so this version here is fully
+    // closed over.
+    known_placeholder_subset: Relation<(T::Origin, T::Origin)>,
 
-    // while this static input is unused by `LocationInsensitive`, it's depended on by initialization
-    // and liveness, so already computed by the time we get to borrowcking.
+    // while this static input is unused by `LocationInsensitive`, it's depended on by
+    // initialization and liveness, so already computed by the time we get to borrowcking.
     cfg_edge: Relation<(T::Point, T::Point)>,
 
     // Partial results possibly used by other variants as input
@@ -236,17 +236,18 @@ impl<T: FactTypes> Output<T> {
 
         let loan_killed_at = all_facts.loan_killed_at.clone().into();
 
-        // `known_subset` is a list of all the `'a: 'b` subset relations the user gave:
+        // `known_placeholder_subset` is a list of all the `'a: 'b` subset relations the user gave:
         // it's not required to be transitive. `known_contains` is its transitive closure: a list
         // of all the known placeholder loans that each of these placeholder origins contains.
-        // Given the `known_subset`s `'a: 'b` and `'b: 'c`: in the `known_contains` relation, `'a`
-        // will also contain `'c`'s placeholder loan.
-        let known_subset = all_facts.known_subset.clone().into();
+        // Given the `known_placeholder_subset`s `'a: 'b` and `'b: 'c`: in the `known_contains`
+        // relation, `'a` will also contain `'c`'s placeholder loan.
+        let known_placeholder_subset = all_facts.known_placeholder_subset.clone().into();
         let known_contains =
-            Output::<T>::compute_known_contains(&known_subset, &all_facts.placeholder);
+            Output::<T>::compute_known_contains(&known_placeholder_subset, &all_facts.placeholder);
 
-        // Fully close over the `known_subset` relation.
-        let known_subset = Output::<T>::compute_known_subset(&known_subset);
+        // Fully close over the `known_placeholder_subset` relation.
+        let known_placeholder_subset =
+            Output::<T>::compute_known_placeholder_subset(&known_placeholder_subset);
 
         let placeholder_origin: Relation<_> = Relation::from_iter(
             all_facts
@@ -271,7 +272,7 @@ impl<T: FactTypes> Output<T> {
             loan_issued_at: &all_facts.loan_issued_at,
             loan_killed_at,
             known_contains,
-            known_subset,
+            known_placeholder_subset,
             placeholder_origin,
             placeholder_loan,
             potential_errors: None,
@@ -392,10 +393,10 @@ impl<T: FactTypes> Output<T> {
         result
     }
 
-    /// Computes the transitive closure of the `known_subset` relation, so that we have
+    /// Computes the transitive closure of the `known_placeholder_subset` relation, so that we have
     /// the full list of placeholder loans contained by the placeholder origins.
     fn compute_known_contains(
-        known_subset: &Relation<(T::Origin, T::Origin)>,
+        known_placeholder_subset: &Relation<(T::Origin, T::Origin)>,
         placeholder: &[(T::Origin, T::Loan)],
     ) -> Relation<(T::Origin, T::Loan)> {
         let mut iteration = datafrog::Iteration::new();
@@ -408,10 +409,10 @@ impl<T: FactTypes> Output<T> {
         while iteration.changed() {
             // known_contains(Origin2, Loan1) :-
             //   known_contains(Origin1, Loan1),
-            //   known_subset(Origin1, Origin2).
+            //   known_placeholder_subset(Origin1, Origin2).
             known_contains.from_join(
                 &known_contains,
-                known_subset,
+                known_placeholder_subset,
                 |&_origin1, &loan1, &origin2| (origin2, loan1),
             );
         }
@@ -419,32 +420,31 @@ impl<T: FactTypes> Output<T> {
         known_contains.complete()
     }
 
-    /// Computes the transitive closure of the `known_subset` relation.
-    fn compute_known_subset(
-        known_subset: &Relation<(T::Origin, T::Origin)>,
+    /// Computes the transitive closure of the `known_placeholder_subset` relation.
+    fn compute_known_placeholder_subset(
+        known_placeholder_subset_base: &Relation<(T::Origin, T::Origin)>,
     ) -> Relation<(T::Origin, T::Origin)> {
         use datafrog::{Iteration, RelationLeaper};
         let mut iteration = Iteration::new();
 
-        let known_subset_base = known_subset;
-        let known_subset = iteration.variable("known_subset");
+        let known_placeholder_subset = iteration.variable("known_placeholder_subset");
 
-        // known_subset(Origin1, Origin2) :-
-        //   known_subset_base(Origin1, Origin2).
-        known_subset.extend(known_subset_base.iter());
+        // known_placeholder_subset(Origin1, Origin2) :-
+        //   known_placeholder_subset_base(Origin1, Origin2).
+        known_placeholder_subset.extend(known_placeholder_subset_base.iter());
 
         while iteration.changed() {
-            // known_subset(Origin1, Origin3) :-
-            //   known_subset(Origin1, Origin2),
-            //   known_subset_base(Origin2, Origin3).
-            known_subset.from_leapjoin(
-                &known_subset,
-                known_subset_base.extend_with(|&(_origin1, origin2)| origin2),
+            // known_placeholder_subset(Origin1, Origin3) :-
+            //   known_placeholder_subset(Origin1, Origin2),
+            //   known_placeholder_subset_base(Origin2, Origin3).
+            known_placeholder_subset.from_leapjoin(
+                &known_placeholder_subset,
+                known_placeholder_subset_base.extend_with(|&(_origin1, origin2)| origin2),
                 |&(origin1, _origin2), &origin3| (origin1, origin3),
             );
         }
 
-        known_subset.complete()
+        known_placeholder_subset.complete()
     }
 
     fn new(dump_enabled: bool) -> Self {

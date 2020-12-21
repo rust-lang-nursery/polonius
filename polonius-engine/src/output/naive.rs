@@ -30,7 +30,7 @@ pub(super) fn compute<T: FactTypes>(
         let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
         let cfg_edge = &ctx.cfg_edge;
         let loan_killed_at = &ctx.loan_killed_at;
-        let known_subset = &ctx.known_subset;
+        let known_placeholder_subset = &ctx.known_placeholder_subset;
         let placeholder_origin = &ctx.placeholder_origin;
 
         // Create a new iteration context, ...
@@ -230,13 +230,14 @@ pub(super) fn compute<T: FactTypes>(
             //   subset(Origin1, Origin2, Point),
             //   placeholder_origin(Origin1),
             //   placeholder_origin(Origin2),
-            //   !known_subset(Origin1, Origin2).
+            //   !known_placeholder_subset(Origin1, Origin2).
             subset_errors.from_leapjoin(
                 &subset,
                 (
                     placeholder_origin.extend_with(|&(origin1, _origin2, _point)| origin1),
                     placeholder_origin.extend_with(|&(_origin1, origin2, _point)| origin2),
-                    known_subset.filter_anti(|&(origin1, origin2, _point)| (origin1, origin2)),
+                    known_placeholder_subset
+                        .filter_anti(|&(origin1, origin2, _point)| (origin1, origin2)),
                     // remove symmetries:
                     datafrog::ValueFilter::from(|&(origin1, origin2, _point), _| {
                         origin1 != origin2

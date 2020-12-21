@@ -585,7 +585,7 @@ fn illegal_subset_error() {
     assert_eq!(checker.facts.placeholder.len(), 2);
 
     // no known subsets are defined in the program...
-    assert_eq!(checker.facts.known_subset.len(), 0);
+    assert_eq!(checker.facts.known_placeholder_subset.len(), 0);
 
     // ...so there should be an error here about the missing `'b: 'a` subset
     assert_eq!(checker.subset_errors_count(), 1);
@@ -618,7 +618,7 @@ fn known_placeholder_origin_subset() {
 
     assert_eq!(checker.facts.universal_region.len(), 2);
     assert_eq!(checker.facts.placeholder.len(), 2);
-    assert_eq!(checker.facts.known_subset.len(), 1);
+    assert_eq!(checker.facts.known_placeholder_subset.len(), 1);
 
     assert_eq!(checker.subset_errors_count(), 0);
     assert_eq!(
@@ -648,8 +648,8 @@ fn transitive_known_subset() {
     assert_eq!(checker.facts.universal_region.len(), 3);
     assert_eq!(checker.facts.placeholder.len(), 3);
 
-    // the 2 `known_subset`s here mean 3 `known_contains`, transitively
-    assert_eq!(checker.facts.known_subset.len(), 2);
+    // the 2 `known_placeholder_subset`s here mean 3 `known_contains`, transitively
+    assert_eq!(checker.facts.known_placeholder_subset.len(), 2);
     assert_eq!(checker.output.known_contains.len(), 3);
 
     assert_eq!(checker.subset_errors_count(), 0);
@@ -687,7 +687,7 @@ fn transitive_illegal_subset_error() {
 
     assert_eq!(checker.facts.universal_region.len(), 3);
     assert_eq!(checker.facts.placeholder.len(), 3);
-    assert_eq!(checker.facts.known_subset.len(), 1);
+    assert_eq!(checker.facts.known_placeholder_subset.len(), 1);
 
     // There should be 2 errors here about the missing `'b: 'c` and `'a: 'c` subsets.
     assert_eq!(checker.subset_errors_count(), 2);

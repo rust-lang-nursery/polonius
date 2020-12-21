@@ -43,9 +43,7 @@ pub(super) fn compute<T: FactTypes>(
         let loan_live_at = iteration.variable::<((T::Loan, T::Point), ())>("loan_live_at");
 
         // `loan_invalidated_at` facts, stored ready for joins
-        let loan_invalidated_at =
-            iteration.variable::<((T::Loan, T::Point), ())>("loan_invalidated_at");
-        loan_invalidated_at.extend(
+        let loan_invalidated_at = Relation::from_iter(
             ctx.loan_invalidated_at
                 .iter()
                 .map(|&(loan, point)| ((loan, point), ())),
@@ -112,7 +110,7 @@ pub(super) fn compute<T: FactTypes>(
         // .. and then start iterating rules!
         while iteration.changed() {
             // Cleanup step: remove symmetries
-            // - remove regions which are `subset`s of themselves
+            // - remove origins which are `subset`s of themselves
             //
             // FIXME: investigate whether is there a better way to do that without complicating
             // the rules too much, because it would also require temporary variables and
@@ -222,12 +220,16 @@ pub(super) fn compute<T: FactTypes>(
 
             // Rule 8: compute illegal access errors, i.e. an invalidation of a live loan.
             //
+            // Here again, this join acts as a pure filter and could be a more efficient leapjoin.
+            // However, similarly to the `origin_live_on_entry` example described above, the
+            // leapjoin with a single `filter_with` leaper would currently not be well-formed.
+            //
             // errors(Loan, Point) :-
             //   loan_invalidated_at(Loan, Point),
             //   loan_live_at(Loan, Point).
             errors.from_join(
-                &loan_invalidated_at,
                 &loan_live_at,
+                &loan_invalidated_at,
                 |&(loan, point), _, _| (loan, point),
             );
 

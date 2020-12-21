@@ -28,7 +28,7 @@ pub(super) fn compute<T: FactTypes>(
     let (errors, subset_errors) = {
         // Static inputs
         let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
-        let cfg_edge_rel = &ctx.cfg_edge;
+        let cfg_edge = &ctx.cfg_edge;
         let loan_killed_at = &ctx.loan_killed_at;
         let known_subset = &ctx.known_subset;
         let placeholder_origin = &ctx.placeholder_origin;
@@ -59,13 +59,14 @@ pub(super) fn compute<T: FactTypes>(
         let origin_live_on_entry_var =
             iteration.variable::<((T::Origin, T::Point), ())>("origin_live_on_entry");
 
-        // output relations: illegal accesses errors, and illegal subset relations errors
-        let errors = iteration.variable("errors");
-        let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
-
+        // variable and index to compute the subsets of placeholders
         let subset_placeholder =
             iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_placeholder");
         let subset_placeholder_o2p = iteration.variable_indistinct("subset_placeholder_o2p");
+
+        // output relations: illegal accesses errors, and illegal subset relations errors
+        let errors = iteration.variable("errors");
+        let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
 
         // load initial facts.
         subset.extend(ctx.subset_base.iter());
@@ -102,15 +103,16 @@ pub(super) fn compute<T: FactTypes>(
                 .borrow_mut()
                 .elements
                 .retain(|&(origin1, origin2, _)| origin1 != origin2);
-            subset_placeholder_o2p.from_map(&subset_placeholder, |&(origin1, origin2, point)| {
-                ((origin2, point), origin1)
-            });
 
             // remap fields to re-index by keys.
             subset_o1p.from_map(&subset, |&(origin1, origin2, point)| {
                 ((origin1, point), origin2)
             });
             subset_o2p.from_map(&subset, |&(origin1, origin2, point)| {
+                ((origin2, point), origin1)
+            });
+
+            subset_placeholder_o2p.from_map(&subset_placeholder, |&(origin1, origin2, point)| {
                 ((origin2, point), origin1)
             });
 
@@ -140,7 +142,7 @@ pub(super) fn compute<T: FactTypes>(
             subset.from_leapjoin(
                 &subset,
                 (
-                    cfg_edge_rel.extend_with(|&(_origin1, _origin2, point1)| point1),
+                    cfg_edge.extend_with(|&(_origin1, _origin2, point1)| point1),
                     origin_live_on_entry_rel.extend_with(|&(origin1, _origin2, _point1)| origin1),
                     origin_live_on_entry_rel.extend_with(|&(_origin1, origin2, _point1)| origin2),
                 ),
@@ -169,7 +171,7 @@ pub(super) fn compute<T: FactTypes>(
                 &origin_contains_loan_on_entry,
                 (
                     loan_killed_at.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
-                    cfg_edge_rel.extend_with(|&(_origin, _loan, point1)| point1),
+                    cfg_edge.extend_with(|&(_origin, _loan, point1)| point1),
                     origin_live_on_entry_rel.extend_with(|&(origin, _loan, _point1)| origin),
                 ),
                 |&(origin, loan, _point1), &point2| (origin, loan, point2),

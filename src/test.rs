@@ -17,8 +17,7 @@ use std::path::Path;
 fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
     let naive = Output::compute(all_facts, Algorithm::Naive, true);
 
-    // Check that the "naive errors" are a subset of the "insensitive
-    // ones".
+    // Check that the "naive errors" are a subset of the "insensitive ones".
     let insensitive = Output::compute(all_facts, Algorithm::LocationInsensitive, false);
     for (naive_point, naive_loans) in &naive.errors {
         match insensitive.errors.get(&naive_point) {
@@ -77,18 +76,37 @@ fn test_facts(all_facts: &AllFacts, algorithms: &[Algorithm]) {
     for &optimized_algorithm in algorithms {
         println!("Algorithm {:?}", optimized_algorithm);
         let opt = Output::compute(all_facts, optimized_algorithm, true);
-        // TMP: until we reach our correctness goals, deactivate some comparisons between variants
-        // assert_equal(&naive.loan_live_at, &opt.loan_live_at);
-        assert_equal(&naive.errors, &opt.errors);
-        assert_equal(&naive.subset_errors, &opt.subset_errors);
-        assert_equal(&naive.move_errors, &opt.move_errors);
+        assert_equal(
+            &naive.loan_live_at,
+            &opt.loan_live_at,
+            "naive vs opt loan_live_at",
+        );
+        assert_equal(&naive.errors, &opt.errors, "naive vs opt errors");
+        assert_equal(
+            &naive.subset_errors,
+            &opt.subset_errors,
+            "naive vs opt subset_errors",
+        );
+        assert_equal(
+            &naive.move_errors,
+            &opt.move_errors,
+            "naive vs opt move_errors",
+        );
     }
 
     // The hybrid algorithm gets the same errors as the naive version
     let opt = Output::compute(all_facts, Algorithm::Hybrid, true);
-    assert_equal(&naive.errors, &opt.errors);
-    assert_equal(&naive.subset_errors, &opt.subset_errors);
-    assert_equal(&naive.move_errors, &opt.move_errors);
+    assert_equal(&naive.errors, &opt.errors, "naive vs hybrid errors");
+    assert_equal(
+        &naive.subset_errors,
+        &opt.subset_errors,
+        "naive vs hybrid subset_errors",
+    );
+    assert_equal(
+        &naive.move_errors,
+        &opt.move_errors,
+        "naive vs hybrid move_errors",
+    );
 }
 
 fn test_fn(dir_name: &str, fn_name: &str, algorithm: Algorithm) -> Result<(), Box<dyn Error>> {
@@ -155,7 +173,7 @@ fn test_insensitive_errors() -> Result<(), Box<dyn Error>> {
     expected.insert(Point::from(24), vec![Loan::from(1)]);
     expected.insert(Point::from(50), vec![Loan::from(2)]);
 
-    assert_equal(&insensitive.errors, &expected);
+    assert_equal(&insensitive.errors, &expected, "insensitive errors");
     Ok(())
 }
 

@@ -8,13 +8,13 @@ use crate::intern::InternerTables;
 use crate::program::parse_from_program;
 
 /// Test that two values are equal, with a better error than `assert_eq`
-pub fn assert_equal<A>(expected_value: &A, actual_value: &A)
+pub fn assert_equal<A>(expected_value: &A, actual_value: &A, message: &str)
 where
     A: ?Sized + Debug + Eq,
 {
     // First check that they have the same debug text. This produces a better error.
     let expected_text = format!("{:#?}", expected_value);
-    assert_expected_debug(&expected_text, actual_value);
+    assert_expected_debug(&expected_text, actual_value, message);
 
     // Then check that they are `eq` too, for good measure.
     assert_eq!(expected_value, actual_value);
@@ -22,7 +22,7 @@ where
 
 /// Test that the debug output of `actual_value` is as expected. Gives
 /// a nice diff if things fail.
-pub fn assert_expected_debug<A>(expected_text: &str, actual_value: &A)
+pub fn assert_expected_debug<A>(expected_text: &str, actual_value: &A, message: &str)
 where
     A: ?Sized + Debug,
 {
@@ -47,7 +47,7 @@ where
         }
     }
 
-    panic!("debug comparison failed");
+    panic!("debug comparison failed: {}", message);
 }
 
 /// Builder for fact checking assertions
@@ -92,9 +92,13 @@ pub(crate) fn assert_checkers_match(checker_a: &FactChecker, checker_b: &FactChe
 }
 
 pub(crate) fn assert_outputs_match(output_a: &Output<LocalFacts>, output_b: &Output<LocalFacts>) {
-    assert_equal(&output_a.errors, &output_b.errors);
-    assert_equal(&output_a.subset_errors, &output_b.subset_errors);
-    assert_equal(&output_a.move_errors, &output_b.move_errors);
+    assert_equal(&output_a.errors, &output_b.errors, "errors");
+    assert_equal(
+        &output_a.subset_errors,
+        &output_b.subset_errors,
+        "subset_errors",
+    );
+    assert_equal(&output_a.move_errors, &output_b.move_errors, "move_errors");
 }
 
 impl FactChecker {

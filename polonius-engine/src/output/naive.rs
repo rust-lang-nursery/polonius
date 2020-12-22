@@ -146,17 +146,61 @@ pub(super) fn compute<T: FactTypes>(
 
             // Rule 3: propagate subsets along the CFG, according to liveness.
             //
+            // Since there are two alternative predicates, A and B, this will result in four
+            // expansions of this rule: two alternatives for predicate A, and two alternatives for
+            // predicate B.
+            //
             // subset(Origin1, Origin2, Point2) :-
             //   subset(Origin1, Origin2, Point1),
             //   cfg_edge(Point1, Point2),
-            //   origin_live_on_entry(Origin1, Point2),
-            //   origin_live_on_entry(Origin2, Point2).
+            //   (origin_live_on_entry(Origin1, Point2); placeholder_origin(Origin1)), // -> A
+            //   (origin_live_on_entry(Origin2, Point2); placeholder_origin(Origin2)). // -> B
+            //
+            // 1) Rule 3, expansion 1 of 4
+            // - predicate A: `origin_live_on_entry(Origin1, Point2)`
+            // - predicate B: `origin_live_on_entry(Origin2, Point2)`
             subset.from_leapjoin(
                 &subset,
                 (
                     cfg_edge.extend_with(|&(_origin1, _origin2, point1)| point1),
-                    origin_live_on_entry_rel.extend_with(|&(origin1, _origin2, _point1)| origin1),
-                    origin_live_on_entry_rel.extend_with(|&(_origin1, origin2, _point1)| origin2),
+                    origin_live_on_entry_rel.extend_with(|&(origin1, _origin2, _point1)| origin1), // -> A
+                    origin_live_on_entry_rel.extend_with(|&(_origin1, origin2, _point1)| origin2), // -> B
+                ),
+                |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
+            );
+            // 2) Rule 3, expansion 2 of 4
+            // - predicate A: `origin_live_on_entry(Origin1, Point2)`
+            // - predicate B: `placeholder_origin(Origin2)`
+            subset.from_leapjoin(
+                &subset,
+                (
+                    cfg_edge.extend_with(|&(_origin1, _origin2, point1)| point1),
+                    origin_live_on_entry_rel.extend_with(|&(origin1, _origin2, _point1)| origin1), // -> A
+                    placeholder_origin.filter_with(|&(_origin1, origin2, _point1)| (origin2, ())), // -> B
+                ),
+                |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
+            );
+            // 3) Rule 3, expansion 3 of 4
+            // - predicate A: `placeholder_origin(Origin1)`
+            // - predicate B: `origin_live_on_entry(Origin2, Point2)`
+            subset.from_leapjoin(
+                &subset,
+                (
+                    cfg_edge.extend_with(|&(_origin1, _origin2, point1)| point1),
+                    placeholder_origin.filter_with(|&(origin1, _origin2, _point1)| (origin1, ())), // -> A
+                    origin_live_on_entry_rel.extend_with(|&(_origin1, origin2, _point1)| origin2), // -> B
+                ),
+                |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
+            );
+            // 4) Rule 3, expansion 4 of 4
+            // - predicate A: `placeholder_origin(Origin1)`
+            // - predicate B: `placeholder_origin(Origin2)`
+            subset.from_leapjoin(
+                &subset,
+                (
+                    cfg_edge.extend_with(|&(_origin1, _origin2, point1)| point1),
+                    placeholder_origin.filter_with(|&(origin1, _origin2, _point1)| (origin1, ())), // -> A
+                    placeholder_origin.filter_with(|&(_origin1, origin2, _point1)| (origin2, ())), // -> B
                 ),
                 |&(origin1, origin2, _point1), &point2| (origin1, origin2, point2),
             );
@@ -176,17 +220,34 @@ pub(super) fn compute<T: FactTypes>(
 
             // Rule 6: propagate loans along the CFG, according to liveness.
             //
+            // Since there is one alternative predicate, A, this will result in two expansions
+            // of this rule: one for each alternative for predicate A.
+            //
             // origin_contains_loan_on_entry(Origin, Loan, Point2) :-
             //   origin_contains_loan_on_entry(Origin, Loan, Point1),
             //   !loan_killed_at(Loan, Point1),
             //   cfg_edge(Point1, Point2),
-            //   origin_live_on_entry(Origin, Point2).
+            //   (origin_live_on_entry(Origin, Point2); placeholder_origin(Origin)). // -> A
+            //
+            // 1) Rule 6, expansion 1 of 2
+            // - predicate A: `origin_live_on_entry(Origin, Point2)`
             origin_contains_loan_on_entry.from_leapjoin(
                 &origin_contains_loan_on_entry,
                 (
                     loan_killed_at.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
                     cfg_edge.extend_with(|&(_origin, _loan, point1)| point1),
-                    origin_live_on_entry_rel.extend_with(|&(origin, _loan, _point1)| origin),
+                    origin_live_on_entry_rel.extend_with(|&(origin, _loan, _point1)| origin), // -> A
+                ),
+                |&(origin, loan, _point1), &point2| (origin, loan, point2),
+            );
+            // 2) Rule 6, expansion 2 of 2
+            // - predicate A: `placeholder_origin(Origin)`
+            origin_contains_loan_on_entry.from_leapjoin(
+                &origin_contains_loan_on_entry,
+                (
+                    loan_killed_at.filter_anti(|&(_origin, loan, point1)| (loan, point1)),
+                    cfg_edge.extend_with(|&(_origin, _loan, point1)| point1),
+                    placeholder_origin.filter_with(|&(origin, _loan, _point1)| (origin, ())), // -> A
                 ),
                 |&(origin, loan, _point1), &point2| (origin, loan, point2),
             );
@@ -194,13 +255,26 @@ pub(super) fn compute<T: FactTypes>(
             // Rule 7: compute whether a loan is live at a given point, i.e. whether it is
             // contained in a live origin at this point.
             //
+            // Since there is one alternative predicate, A, this will result in two expansions
+            // of this rule: one for each alternative for predicate A.
+            //
             // loan_live_at(Loan, Point) :-
             //   origin_contains_loan_on_entry(Origin, Loan, Point),
-            //   origin_live_on_entry(Origin, Point).
+            //   (origin_live_on_entry(Origin, Point); placeholder_origin(Origin)). // -> A
+            //
+            // 1) Rule 7, expansion 1 of 2
+            // - predicate A: `origin_live_on_entry(Origin, Point)`
             loan_live_at.from_join(
                 &origin_contains_loan_on_entry_op,
-                &origin_live_on_entry_var,
+                &origin_live_on_entry_var, // -> A
                 |&(_origin, point), &loan, _| ((loan, point), ()),
+            );
+            // 2) Rule 7, expansion 2 of 2
+            // - predicate A: `placeholder_origin(Origin)`
+            loan_live_at.from_leapjoin(
+                &origin_contains_loan_on_entry_op,
+                placeholder_origin.extend_with(|&((origin, _point), _loan)| origin), // -> A
+                |&((_origin, point), loan), _| ((loan, point), ()),
             );
 
             // Rule 8: compute illegal access errors, i.e. an invalidation of a live loan.
@@ -226,7 +300,7 @@ pub(super) fn compute<T: FactTypes>(
             // Here as well, WF-ness prevents this join from being a filter-only leapjoin. It
             // doesn't matter much, as `placeholder_origin` is single-value relation.
             //
-            // subset_error(Origin1, Origin2, Point) :-
+            // subset_errors(Origin1, Origin2, Point) :-
             //   subset(Origin1, Origin2, Point),
             //   placeholder_origin(Origin1),
             //   placeholder_origin(Origin2),

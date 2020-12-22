@@ -191,23 +191,11 @@ impl<T: FactTypes> Output<T> {
             drop_of_var_derefs_origin: all_facts.drop_of_var_derefs_origin.clone(),
         };
 
-        let mut origin_live_on_entry = liveness::compute_live_origins(
+        let origin_live_on_entry = liveness::compute_live_origins(
             liveness_ctx,
             &cfg_edge,
             var_maybe_partly_initialized_on_exit,
             &mut result,
-        );
-
-        let cfg_node = cfg_edge
-            .iter()
-            .map(|&(point1, _)| point1)
-            .chain(cfg_edge.iter().map(|&(_, point2)| point2))
-            .collect();
-
-        liveness::make_universal_regions_live::<T>(
-            &mut origin_live_on_entry,
-            &cfg_node,
-            &all_facts.universal_region,
         );
 
         // 3) Borrow checking
@@ -221,8 +209,6 @@ impl<T: FactTypes> Output<T> {
         // variants, to after the pre-pass has made sure we actually need to compute the full
         // analysis. If these facts happened to be recorded in separate MIR walks, we might also
         // avoid generating those facts.
-
-        let origin_live_on_entry = origin_live_on_entry.into();
 
         // TODO: also flip the order of this relation's arguments in rustc
         // from `loan_invalidated_at(point, loan)` to `loan_invalidated_at(loan, point)`.

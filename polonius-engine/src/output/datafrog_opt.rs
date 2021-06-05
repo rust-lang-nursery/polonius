@@ -17,14 +17,19 @@ use crate::output::{Context, Output};
 pub(super) fn compute<T: FactTypes>(
     ctx: &Context<'_, T>,
     result: &mut Output<T>,
-) -> Relation<(T::Loan, T::Point)> {
+) -> (
+    Relation<(T::Loan, T::Point)>,
+    Relation<(T::Origin, T::Origin, T::Point)>,
+) {
     let timer = Instant::now();
 
-    let errors = {
+    let (errors, subset_errors) = {
         // Static inputs
         let origin_live_on_entry_rel = &ctx.origin_live_on_entry;
         let cfg_edge_rel = &ctx.cfg_edge;
         let loan_killed_at = &ctx.loan_killed_at;
+        let known_placeholder_subset = &ctx.known_placeholder_subset;
+        let placeholder_origin = &ctx.placeholder_origin;
 
         // Create a new iteration context, ...
         let mut iteration = Iteration::new();
@@ -127,6 +132,11 @@ pub(super) fn compute<T: FactTypes>(
 
         // .decl errors(loan, point)
         let errors = iteration.variable("errors");
+        let subset_errors = iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_errors");
+
+        let subset_placeholder =
+            iteration.variable::<(T::Origin, T::Origin, T::Point)>("subset_placeholder");
+        let subset_placeholder_o2p = iteration.variable_indistinct("subset_placeholder_o2p");
 
         // Make "variable" versions of the relations, needed for joins.
         loan_issued_at_op.extend(
@@ -145,6 +155,8 @@ pub(super) fn compute<T: FactTypes>(
                 .map(|&(origin, point)| ((origin, point), ())),
         );
 
+        // Rule 1: the initial subsets are the non-transitive `subset_base` static input.
+        //
         // subset(origin1, origin2, point) :-
         //   subset_base(origin1, origin2, point).
         subset_o1p.extend(
@@ -153,6 +165,8 @@ pub(super) fn compute<T: FactTypes>(
                 .map(|&(origin1, origin2, point)| ((origin1, point), origin2)),
         );
 
+        // Rule 2: the issuing origins are the ones initially containing loans.
+        //
         // origin_contains_loan_on_entry(origin, loan, point) :-
         //   loan_issued_at(origin, loan, point).
         origin_contains_loan_on_entry_op.extend(
@@ -177,21 +191,52 @@ pub(super) fn compute<T: FactTypes>(
                 .elements
                 .retain(|&((origin1, _), origin2)| origin1 != origin2);
 
+            subset_placeholder
+                .recent
+                .borrow_mut()
+                .elements
+                .retain(|&(origin1, origin2, _)| origin1 != origin2);
+
+            subset_placeholder_o2p.from_map(&subset_placeholder, |&(origin1, origin2, point)| {
+                ((origin2, point), origin1)
+            });
+
+            // Rule 3
+            //
             // live_to_dying_regions(origin1, origin2, point1, point2) :-
             //   subset(origin1, origin2, point1),
             //   cfg_edge(point1, point2),
-            //   origin_live_on_entry(origin1, point2),
+            //   (origin_live_on_entry(origin1, point2); placeholder_origin(origin1)), // -> A
             //   !origin_live_on_entry(origin2, point2).
+            //
+            // Since there is one alternative predicate, A, this will result in two expansions
+            // of this rule: one for each alternative for predicate A.
+            //
+            // 1) Rule 3, expansion 1 of 2
+            // - predicate A: `origin_live_on_entry(origin1, point2)`
             live_to_dying_regions_o2pq.from_leapjoin(
                 &subset_o1p,
                 (
                     cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
-                    origin_live_on_entry_rel.extend_with(|&((origin1, _), _)| origin1),
+                    origin_live_on_entry_rel.extend_with(|&((origin1, _), _)| origin1), // -> A
+                    origin_live_on_entry_rel.extend_anti(|&((_, _), origin2)| origin2),
+                ),
+                |&((origin1, point1), origin2), &point2| ((origin2, point1, point2), origin1),
+            );
+            // 2) Rule 3, expansion 2 of 2
+            // - predicate A: `placeholder_origin(origin1)`
+            live_to_dying_regions_o2pq.from_leapjoin(
+                &subset_o1p,
+                (
+                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    placeholder_origin.filter_with(|&((origin1, _), _)| (origin1, ())), // -> A
                     origin_live_on_entry_rel.extend_anti(|&((_, _), origin2)| origin2),
                 ),
                 |&((origin1, point1), origin2), &point2| ((origin2, point1, point2), origin1),
             );
 
+            // Rule 4
+            //
             // dying_region_requires((origin, point1, point2), loan) :-
             //   origin_contains_loan_on_entry(origin, loan, point1),
             //   !loan_killed_at(loan, point1),
@@ -207,6 +252,8 @@ pub(super) fn compute<T: FactTypes>(
                 |&((origin, point1), loan), &point2| ((origin, point1, point2), loan),
             );
 
+            // Rule 5
+            //
             // dying_can_reach_origins(origin2, point1, point2) :-
             //   live_to_dying_regions(_, origin2, point1, point2).
             dying_can_reach_origins.from_map(
@@ -214,6 +261,8 @@ pub(super) fn compute<T: FactTypes>(
                 |&((origin2, point1, point2), _origin1)| ((origin2, point1), point2),
             );
 
+            // Rule 6
+            //
             // dying_can_reach_origins(origin, point1, point2) :-
             //   dying_region_requires(origin, point1, point2, _loan).
             dying_can_reach_origins.from_map(
@@ -221,6 +270,8 @@ pub(super) fn compute<T: FactTypes>(
                 |&((origin, point1, point2), _loan)| ((origin, point1), point2),
             );
 
+            // Rule 7
+            //
             // dying_can_reach(origin1, origin2, point1, point2) :-
             //   dying_can_reach_origins(origin1, point1, point2),
             //   subset(origin1, origin2, point1).
@@ -230,6 +281,8 @@ pub(super) fn compute<T: FactTypes>(
                 |&(origin1, point1), &point2, &origin2| ((origin2, point2), (origin1, point1)),
             );
 
+            // Rule 8
+            //
             // dying_can_reach(origin1, origin3, point1, point2) :-
             //   dying_can_reach(origin1, origin2, point1, point2),
             //   !origin_live_on_entry(origin2, point2),
@@ -251,33 +304,96 @@ pub(super) fn compute<T: FactTypes>(
                 },
             );
 
+            // Rule 9
+            //
             // dying_can_reach_live(origin1, origin2, point1, point2) :-
             //   dying_can_reach(origin1, origin2, point1, point2),
-            //   origin_live_on_entry(origin2, point2).
+            //   (origin_live_on_entry(origin2, point2); placeholder_origin(origin2)). // -> A
+            //
+            // Since there is one alternative predicate, A, this will result in two expansions
+            // of this rule: one for each alternative for predicate A.
+            //
+            // 1) Rule 9, expansion 1 of 2
+            // - predicate A: `origin_live_on_entry(origin2, point2)`
             dying_can_reach_live.from_join(
                 &dying_can_reach_o2q,
-                &origin_live_on_entry_var,
+                &origin_live_on_entry_var, // -> A
                 |&(origin2, point2), &(origin1, point1), _| ((origin1, point1, point2), origin2),
             );
+            // 2) Rule 9, expansion 2 of 2
+            // - predicate A: `placeholder_origin(origin2)`
+            dying_can_reach_live.from_leapjoin(
+                &dying_can_reach_o2q,
+                placeholder_origin.extend_with(|&((origin2, _), (_, _))| origin2), // -> A
+                |&((origin2, point2), (origin1, point1)), _| ((origin1, point1, point2), origin2),
+            );
 
+            // Rule 10
+            //
             // subset(origin1, origin2, point2) :-
             //   subset(origin1, origin2, point1),
             //   cfg_edge(point1, point2),
-            //   origin_live_on_entry(origin1, point2),
-            //   origin_live_on_entry(origin2, point2).
+            //   (origin_live_on_entry(origin1, point2); placeholder_origin(origin1)), // -> A
+            //   (origin_live_on_entry(origin2, point2); placeholder_origin(origin2)). // -> B
+            //
+            // Since there are two alternative predicates, A and B, this will result in four
+            // expansions of this rule: two alternatives for predicate A, and two alternatives for
+            // predicate B.
             //
             // Carry `origin1 <= origin2` from `point1` into `point2` if both `origin1` and
             // `origin2` are live in `point2`.
+            //
+            // 1) Rule 10, expansion 1 of 4
+            // - predicate A: `origin_live_on_entry(origin1, point2)`
+            // - predicate B: `origin_live_on_entry(origin2, point2)`
             subset_o1p.from_leapjoin(
                 &subset_o1p,
                 (
                     cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
-                    origin_live_on_entry_rel.extend_with(|&((origin1, _), _)| origin1),
-                    origin_live_on_entry_rel.extend_with(|&((_, _), origin2)| origin2),
+                    origin_live_on_entry_rel.extend_with(|&((origin1, _), _)| origin1), // -> A
+                    origin_live_on_entry_rel.extend_with(|&((_, _), origin2)| origin2), // -> B
+                ),
+                |&((origin1, _point1), origin2), &point2| ((origin1, point2), origin2),
+            );
+            // 2) Rule 10, expansion 2 of 4
+            // - predicate A: `origin_live_on_entry(origin1, point2)`
+            // - predicate B: `placeholder_origin(origin2)`
+            subset_o1p.from_leapjoin(
+                &subset_o1p,
+                (
+                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    origin_live_on_entry_rel.extend_with(|&((origin1, _), _)| origin1), // -> A
+                    placeholder_origin.filter_with(|&((_, _), origin2)| (origin2, ())), // -> B
+                ),
+                |&((origin1, _point1), origin2), &point2| ((origin1, point2), origin2),
+            );
+            // 3) Rule 10, expansion 3 of 4
+            // - predicate A: `placeholder_origin(origin1)`
+            // - predicate B: `origin_live_on_entry(origin2, point2)`
+            subset_o1p.from_leapjoin(
+                &subset_o1p,
+                (
+                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    placeholder_origin.filter_with(|&((origin1, _), _)| (origin1, ())), // -> A
+                    origin_live_on_entry_rel.extend_with(|&((_, _), origin2)| origin2), // -> B
+                ),
+                |&((origin1, _point1), origin2), &point2| ((origin1, point2), origin2),
+            );
+            // 4) Rule 10, expansion 4 of 4
+            // - predicate A: `placeholder_origin(origin1)`
+            // - predicate B: `placeholder_origin(origin2)`
+            subset_o1p.from_leapjoin(
+                &subset_o1p,
+                (
+                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    placeholder_origin.filter_with(|&((origin1, _), _)| (origin1, ())), // -> A
+                    placeholder_origin.filter_with(|&((_, _), origin2)| (origin2, ())), // -> B
                 ),
                 |&((origin1, _point1), origin2), &point2| ((origin1, point2), origin2),
             );
 
+            // Rule 11
+            //
             // subset(origin1, origin3, point2) :-
             //   live_to_dying_regions(origin1, origin2, point1, point2),
             //   dying_can_reach_live(origin2, origin3, point1, point2).
@@ -287,6 +403,8 @@ pub(super) fn compute<T: FactTypes>(
                 |&(_origin2, _point1, point2), &origin1, &origin3| ((origin1, point2), origin3),
             );
 
+            // Rule 12
+            //
             // origin_contains_loan_on_entry(origin2, loan, point2) :-
             //   dying_region_requires(origin1, loan, point1, point2),
             //   dying_can_reach_live(origin1, origin2, point1, point2).
@@ -302,35 +420,70 @@ pub(super) fn compute<T: FactTypes>(
                 |&(_origin1, _point1, point2), &loan, &origin2| ((origin2, point2), loan),
             );
 
+            // Rule 13
+            //
             // origin_contains_loan_on_entry(origin, loan, point2) :-
             //   origin_contains_loan_on_entry(origin, loan, point1),
             //   !loan_killed_at(loan, point1),
             //   cfg_edge(point1, point2),
-            //   origin_live_on_entry(origin, point2).
+            //   (origin_live_on_entry(origin, point2); placeholder_origin(origin)). // -> A
+            //
+            // Since there is one alternative predicate, A, this will result in two expansions
+            // of this rule: one for each alternative for predicate A.
+            //
+            // 1) Rule 13, expansion 1 of 2
+            // - predicate A: `origin_live_on_entry(origin, point2)`
             origin_contains_loan_on_entry_op.from_leapjoin(
                 &origin_contains_loan_on_entry_op,
                 (
                     loan_killed_at.filter_anti(|&((_, point1), loan)| (loan, point1)),
                     cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
-                    origin_live_on_entry_rel.extend_with(|&((origin, _), _)| origin),
+                    origin_live_on_entry_rel.extend_with(|&((origin, _), _)| origin), // -> A
+                ),
+                |&((origin, _), loan), &point2| ((origin, point2), loan),
+            );
+            // 2) Rule 13, expansion 2 of 2
+            // - predicate A: `placeholder_origin(origin)`
+            origin_contains_loan_on_entry_op.from_leapjoin(
+                &origin_contains_loan_on_entry_op,
+                (
+                    loan_killed_at.filter_anti(|&((_, point1), loan)| (loan, point1)),
+                    cfg_edge_rel.extend_with(|&((_, point1), _)| point1),
+                    placeholder_origin.filter_with(|&((origin, _), _)| (origin, ())), // -> A
                 ),
                 |&((origin, _), loan), &point2| ((origin, point2), loan),
             );
 
+            // Rule 14
+            //
             // dead_borrow_region_can_reach_root((origin, point), loan) :-
             //   loan_issued_at(origin, loan, point),
             //   !origin_live_on_entry(origin, point).
+            //
+            // Even though `loan_issued_at_op` is a Variable here for the antijoin API (and
+            // nowadays datafrog's Relations can be built with `Relation::from_antijoin`), this is
+            // a join over two static inputs. It should not produce facts each round, and could be
+            // moved out of the loop (and most likely should be inlined into rule 15).
+            //
             dead_borrow_region_can_reach_root.from_antijoin(
                 &loan_issued_at_op,
                 &origin_live_on_entry_rel,
                 |&(origin, point), &loan| ((origin, point), loan),
             );
 
+            // Rule 15
+            //
             // dead_borrow_region_can_reach_dead((origin, point), loan) :-
             //   dead_borrow_region_can_reach_root((origin, point), loan).
+            //
+            // Note: this is effectively mapping over a static input, and
+            // `dead_borrow_region_can_reach_root` could probably be inlined in this relation.
+            //
             dead_borrow_region_can_reach_dead
                 .from_map(&dead_borrow_region_can_reach_root, |&tuple| tuple);
 
+            // Rule 16
+            //
             // dead_borrow_region_can_reach_dead((origin2, point), loan) :-
             //   dead_borrow_region_can_reach_dead(origin1, loan, point),
             //   subset(origin1, origin2, point),
@@ -346,30 +499,62 @@ pub(super) fn compute<T: FactTypes>(
                 |&(origin2, point), &loan| ((origin2, point), loan),
             );
 
+            // Rule 17
+            //
             // loan_live_at(loan, point) :-
             //   origin_contains_loan_on_entry(origin, loan, point),
-            //   origin_live_on_entry(origin, point).
+            //   (origin_live_on_entry(origin, point); placeholder_origin(origin)). // -> A
+            //
+            // Since there is one alternative predicate, A, this will result in two expansions
+            // of this rule: one for each alternative for predicate A.
+            //
+            // 1) Rule 17, expansion 1 of 2
+            // - predicate A: `origin_live_on_entry(origin, point)`
             loan_live_at.from_join(
                 &origin_contains_loan_on_entry_op,
-                &origin_live_on_entry_var,
+                &origin_live_on_entry_var, // -> A
                 |&(_origin, point), &loan, _| ((loan, point), ()),
             );
+            // 2) Rule 17, expansion 2 of 2
+            // - predicate A: `placeholder_origin(origin)`
+            loan_live_at.from_leapjoin(
+                &origin_contains_loan_on_entry_op,
+                placeholder_origin.extend_with(|&((origin, _point), _loan)| origin), // -> A
+                |&((_origin, point), loan), _| ((loan, point), ()),
+            );
 
+            // Rule 18
+            //
             // loan_live_at(loan, point) :-
             //   dead_borrow_region_can_reach_dead(origin1, loan, point),
             //   subset(origin1, origin2, point),
-            //   origin_live_on_entry(origin2, point).
+            //   (origin_live_on_entry(origin2, point); placeholder_origin(origin2)). // -> A
+            //
+            // Since there is one alternative predicate, A, this will result in two expansions
+            // of this rule: one for each alternative for predicate A.
             //
             // NB: the datafrog code below uses
             // `dead_borrow_region_can_reach_dead_1`, which is equal
             // to `dead_borrow_region_can_reach_dead` and `subset`
             // joined together.
+            //
+            // 1) Rule 18, expansion 1 of 2
+            // - predicate A: `origin_live_on_entry(origin2, point)`
             loan_live_at.from_join(
                 &dead_borrow_region_can_reach_dead_1,
-                &origin_live_on_entry_var,
+                &origin_live_on_entry_var, // -> A
                 |&(_origin2, point), &loan, _| ((loan, point), ()),
             );
+            // 2) Rule 18, expansion 2 of 2
+            // - predicate A: `placeholder_origin(origin2)`
+            loan_live_at.from_leapjoin(
+                &dead_borrow_region_can_reach_dead_1,
+                placeholder_origin.extend_with(|&((origin2, _point), _loan)| origin2), // -> A
+                |&((_origin2, point), loan), _| ((loan, point), ()),
+            );
 
+            // Rule 19: compute illegal access errors, i.e. an invalidation of a live loan.
+            //
             // errors(loan, point) :-
             //   loan_invalidated_at(loan, point),
             //   loan_live_at(loan, point).
@@ -377,6 +562,55 @@ pub(super) fn compute<T: FactTypes>(
                 &loan_invalidated_at,
                 &loan_live_at,
                 |&(loan, point), _, _| (loan, point),
+            );
+
+            // Rule 20: compute the subsets of the placeholder origins, at a given point.
+            //
+            // subset_placeholder(Origin1, Origin2, Point) :-
+            //     subset(Origin1, Origin2, Point),
+            //     placeholder_origin(Origin1).
+            subset_placeholder.from_leapjoin(
+                &subset_o1p,
+                (
+                    placeholder_origin.extend_with(|&((origin1, _point), _origin2)| origin1),
+                    // remove symmetries:
+                    datafrog::ValueFilter::from(|&((origin1, _point), origin2), _| {
+                        origin1 != origin2
+                    }),
+                ),
+                |&((origin1, point), origin2), _| (origin1, origin2, point),
+            );
+
+            // Rule 21: compute the subset transitive closure of placeholder origins.
+            //
+            // subset_placeholder(Origin1, Origin3, Point) :-
+            //     subset_placeholder(Origin1, Origin2, Point),
+            //     subset(Origin2, Origin3, Point).
+            subset_placeholder.from_join(
+                &subset_placeholder_o2p,
+                &subset_o1p,
+                |&(_origin2, point), &origin1, &origin3| (origin1, origin3, point),
+            );
+
+            // Rule 22: compute illegal subset relations errors, i.e. the undeclared subsets
+            // between two placeholder origins.
+            //
+            // subset_errors(Origin1, Origin2, Point) :-
+            //     subset_placeholder(Origin1, Origin2, Point),
+            //     placeholder_origin(Origin2),
+            //     !known_placeholder_subset(Origin1, Origin2).
+            subset_errors.from_leapjoin(
+                &subset_placeholder,
+                (
+                    placeholder_origin.extend_with(|&(_origin1, origin2, _point)| origin2),
+                    known_placeholder_subset
+                        .filter_anti(|&(origin1, origin2, _point)| (origin1, origin2)),
+                    // remove symmetries:
+                    datafrog::ValueFilter::from(|&(origin1, origin2, _point), _| {
+                        origin1 != origin2
+                    }),
+                ),
+                |&(origin1, origin2, point), _| (origin1, origin2, point),
             );
         }
 
@@ -417,14 +651,15 @@ pub(super) fn compute<T: FactTypes>(
             }
         }
 
-        errors.complete()
+        (errors.complete(), subset_errors.complete())
     };
 
     info!(
-        "errors is complete: {} tuples, {:?}",
+        "analysis done: {} `errors` tuples, {} `subset_errors` tuples, {:?}",
         errors.len(),
+        subset_errors.len(),
         timer.elapsed()
     );
 
-    errors
+    (errors, subset_errors)
 }

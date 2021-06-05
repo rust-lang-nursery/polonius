@@ -10,7 +10,6 @@
 
 //! An implementation of the origin liveness calculation logic
 
-use std::collections::BTreeSet;
 use std::time::Instant;
 
 use crate::facts::FactTypes;
@@ -23,7 +22,7 @@ pub(super) fn compute_live_origins<T: FactTypes>(
     cfg_edge: &Relation<(T::Point, T::Point)>,
     var_maybe_partly_initialized_on_exit: Relation<(T::Variable, T::Point)>,
     output: &mut Output<T>,
-) -> Vec<(T::Origin, T::Point)> {
+) -> Relation<(T::Origin, T::Point)> {
     let timer = Instant::now();
     let mut iteration = Iteration::new();
 
@@ -151,20 +150,5 @@ pub(super) fn compute_live_origins<T: FactTypes>(
         }
     }
 
-    origin_live_on_entry.elements
-}
-
-pub(super) fn make_universal_regions_live<T: FactTypes>(
-    origin_live_on_entry: &mut Vec<(T::Origin, T::Point)>,
-    cfg_node: &BTreeSet<T::Point>,
-    universal_regions: &[T::Origin],
-) {
-    debug!("make_universal_regions_live()");
-
-    origin_live_on_entry.reserve(universal_regions.len() * cfg_node.len());
-    for &origin in universal_regions.iter() {
-        for &point in cfg_node.iter() {
-            origin_live_on_entry.push((origin, point));
-        }
-    }
+    origin_live_on_entry
 }

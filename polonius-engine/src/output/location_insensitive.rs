@@ -17,47 +17,70 @@ use crate::output::{Context, Output};
 pub(super) fn compute<T: FactTypes>(
     ctx: &Context<'_, T>,
     result: &mut Output<T>,
-) -> Relation<(T::Loan, T::Point)> {
+) -> (
+    Relation<(T::Loan, T::Point)>,
+    Relation<(T::Origin, T::Origin)>,
+) {
     let timer = Instant::now();
 
-    let potential_errors = {
+    let (potential_errors, potential_subset_errors) = {
         // Static inputs
         let origin_live_on_entry = &ctx.origin_live_on_entry;
         let loan_invalidated_at = &ctx.loan_invalidated_at;
+        let placeholder_origin = &ctx.placeholder_origin;
+        let placeholder_loan = &ctx.placeholder_loan;
+        let known_contains = &ctx.known_contains;
 
-        // Create a new iteration context, ...
-        let mut iteration = Iteration::new();
-
-        // .. some variables, ..
-        let subset = iteration.variable::<(T::Origin, T::Origin)>("subset");
-        let origin_contains_loan_on_entry =
-            iteration.variable::<(T::Origin, T::Loan)>("origin_contains_loan_on_entry");
-
-        let potential_errors = iteration.variable::<(T::Loan, T::Point)>("potential_errors");
-
-        // load initial facts.
-
-        // subset(origin1, origin2) :-
-        //   subset_base(origin1, origin2, _point).
-        subset.extend(
+        // Rule 1: the subsets are the non-transitive `subset_base` static input.
+        //
+        // subset(Origin1, Origin2) :-
+        //   subset_base(Origin1, Origin2, _).
+        let subset = Relation::from_iter(
             ctx.subset_base
                 .iter()
                 .map(|&(origin1, origin2, _point)| (origin1, origin2)),
         );
 
-        // origin_contains_loan_on_entry(origin, loan) :-
-        //   loan_issued_at(origin, loan, _point).
+        // Create a new iteration context, ...
+        let mut iteration = Iteration::new();
+
+        // .. some variables, ..
+        let origin_contains_loan_on_entry =
+            iteration.variable::<(T::Origin, T::Loan)>("origin_contains_loan_on_entry");
+
+        let potential_errors = iteration.variable::<(T::Loan, T::Point)>("potential_errors");
+        let potential_subset_errors =
+            iteration.variable::<(T::Origin, T::Origin)>("potential_subset_errors");
+
+        // load initial facts.
+
+        // Rule 2: the issuing origins are the ones initially containing loans.
+        //
+        // origin_contains_loan_on_entry(Origin, Loan) :-
+        //   loan_issued_at(Origin, Loan, _).
         origin_contains_loan_on_entry.extend(
             ctx.loan_issued_at
                 .iter()
                 .map(|&(origin, loan, _point)| (origin, loan)),
         );
 
+        // Rule 3: the placeholder origins also contain their placeholder loan.
+        //
+        // origin_contains_loan_on_entry(Origin, Loan) :-
+        //   placeholder_loan(Origin, Loan).
+        origin_contains_loan_on_entry.extend(
+            placeholder_loan
+                .iter()
+                .map(|&(loan, origin)| (origin, loan)),
+        );
+
         // .. and then start iterating rules!
         while iteration.changed() {
-            // origin_contains_loan_on_entry(origin2, loan) :-
-            //   origin_contains_loan_on_entry(origin1, loan),
-            //   subset(origin1, origin2).
+            // Rule 4: propagate the loans from the origins to their subsets.
+            //
+            // origin_contains_loan_on_entry(Origin2, Loan) :-
+            //   origin_contains_loan_on_entry(Origin1, Loan),
+            //   subset(Origin1, Origin2).
             //
             // Note: Since `subset` is effectively a static input, this join can be ported to
             // a leapjoin. Doing so, however, was 7% slower on `clap`.
@@ -67,29 +90,66 @@ pub(super) fn compute<T: FactTypes>(
                 |&_origin1, &loan, &origin2| (origin2, loan),
             );
 
-            // loan_live_at(loan, point) :-
-            //   origin_contains_loan_on_entry(origin, loan),
-            //   origin_live_on_entry(origin, point)
+            // Rule 5: compute potential errors, i.e. loans that are contained in an origin at any point in the CFG, and
+            // which are invalidated at a point where that origin is live.
             //
-            // potential_errors(loan, point) :-
-            //   loan_invalidated_at(loan, point),
-            //   loan_live_at(loan, point).
+            // loan_live_at(Loan, Point) :-
+            //   origin_contains_loan_on_entry(Origin, Loan),
+            //   (origin_live_on_entry(Origin, Point); placeholder_origin(Origin)). // -> A
+            //
+            // Since there is one alternative predicate, A, this will result in two expansions
+            // of this rule: one for each alternative for predicate A.
+            //
+            // potential_errors(Loan, Point) :-
+            //   loan_invalidated_at(Loan, Point),
+            //   loan_live_at(Loan, Point).
             //
             // Note: we don't need to materialize `loan_live_at` here
             // so we can inline it in the `potential_errors` relation.
             //
+            // 1) Rule 5, expansion 1 of 2
+            // - predicate A: `origin_live_on_entry(Origin, Point)`
             potential_errors.from_leapjoin(
                 &origin_contains_loan_on_entry,
                 (
-                    origin_live_on_entry.extend_with(|&(origin, _loan)| origin),
+                    origin_live_on_entry.extend_with(|&(origin, _loan)| origin), // -> A
                     loan_invalidated_at.extend_with(|&(_origin, loan)| loan),
                 ),
                 |&(_origin, loan), &point| (loan, point),
             );
+            // 2) Rule 5, expansion 2 of 2
+            // - predicate A: `placeholder_origin(Origin)`
+            potential_errors.from_leapjoin(
+                &origin_contains_loan_on_entry,
+                (
+                    placeholder_origin.filter_with(|&(origin, _loan)| (origin, ())), // -> A
+                    loan_invalidated_at.extend_with(|&(_origin, loan)| loan),
+                ),
+                |&(_origin, loan), &point| (loan, point),
+            );
+
+            // Rule 6: compute potential subset errors, i.e. the placeholder loans which ultimately
+            // flowed into another placeholder origin unexpectedly.
+            //
+            // potential_subset_errors(Origin1, Origin2) :-
+            //   placeholder(Origin1, Loan1),
+            //   placeholder(Origin2, _),
+            //   origin_contains_loan_on_entry(Origin2, Loan1),
+            //   !known_contains(Origin2, Loan1).
+            potential_subset_errors.from_leapjoin(
+                &origin_contains_loan_on_entry,
+                (
+                    known_contains.filter_anti(|&(origin2, loan1)| (origin2, loan1)),
+                    placeholder_origin.filter_with(|&(origin2, _loan1)| (origin2, ())),
+                    placeholder_loan.extend_with(|&(_origin2, loan1)| loan1),
+                    // remove symmetries:
+                    datafrog::ValueFilter::from(|&(origin2, _loan1), &origin1| origin2 != origin1),
+                ),
+                |&(origin2, _loan1), &origin1| (origin1, origin2),
+            );
         }
 
         if result.dump_enabled {
-            let subset = subset.complete();
             for &(origin1, origin2) in subset.iter() {
                 result
                     .subset_anywhere
@@ -108,14 +168,18 @@ pub(super) fn compute<T: FactTypes>(
             }
         }
 
-        potential_errors.complete()
+        (
+            potential_errors.complete(),
+            potential_subset_errors.complete(),
+        )
     };
 
     info!(
-        "potential_errors is complete: {} tuples, {:?}",
+        "analysis done: {} `potential_errors` tuples, {} `potential_subset_errors` tuples, {:?}",
         potential_errors.len(),
+        potential_subset_errors.len(),
         timer.elapsed()
     );
 
-    potential_errors
+    (potential_errors, potential_subset_errors)
 }

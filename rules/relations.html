@@ -1,0 +1,364 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Relations - Polonius</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="../favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="../favicon.png">
+        
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        
+        <link rel="stylesheet" href="../css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../what_is_polonius.html"><strong aria-hidden="true">1.</strong> What is Polonius?</a></li><li class="chapter-item expanded "><a href="../current_status.html"><strong aria-hidden="true">2.</strong> Current status and roadmap</a></li><li class="chapter-item expanded "><a href="../getting_started.html"><strong aria-hidden="true">3.</strong> Getting started</a></li><li class="chapter-item expanded "><a href="../generate_inputs.html"><strong aria-hidden="true">4.</strong> Generating inputs from rustc</a></li><li class="chapter-item expanded "><a href="../rules.html"><strong aria-hidden="true">5.</strong> Rules</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../rules/atoms.html"><strong aria-hidden="true">5.1.</strong> Atoms</a></li><li class="chapter-item expanded "><a href="../rules/relations.html" class="active"><strong aria-hidden="true">5.2.</strong> Relations</a></li><li class="chapter-item expanded "><a href="../rules/initialization.html"><strong aria-hidden="true">5.3.</strong> Initialization analysis</a></li><li class="chapter-item expanded "><a href="../rules/liveness.html"><strong aria-hidden="true">5.4.</strong> Liveness analysis</a></li><li class="chapter-item expanded "><a href="../rules/loans.html"><strong aria-hidden="true">5.5.</strong> Loan analysis</a></li></ol></li><li class="chapter-item expanded "><a href="../testing.html"><strong aria-hidden="true">6.</strong> Testing Polonius</a></li><li class="chapter-item expanded "><a href="../see_also.html"><strong aria-hidden="true">7.</strong> See also</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">Polonius</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                        
+
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="input-relations"><a class="header" href="#input-relations">Input relations</a></h1>
+<p>Polonius computes its analyses starting from &quot;input facts&quot;, which can be seen as a little database of information about a piece of Rust code (most often: a function).</p>
+<p>In this analogy, the database is the <a href="https://github.com/rust-lang/polonius/blob/2cf8336f7ff9932270160a392ca5be3c804b7f41/polonius-engine/src/facts.rs#L6-L81"><code>AllFacts</code> struct</a>, which contains all the data in tables (or relations), here as a handful of <code>Vec</code>s of rows. The table rows are these &quot;facts&quot;: this terminology comes from Datalog, which Polonius uses to do its computations (and the reason for the <code>rustc</code> flag <a href="../generate_inputs.html">outputting this data</a> being named <code>-Znll-facts</code>, and the files themselves <code>*.facts</code>).</p>
+<p>In order to be used in various contexts (mainly: in-memory from <code>rustc</code>, and from on-disk test files in the Polonius repository) this structure is generic over the types of facts, only requiring them to be <a href="https://github.com/rust-lang/polonius/blob/2cf8336f7ff9932270160a392ca5be3c804b7f41/polonius-engine/src/facts.rs#L108-L112"><code>Atom</code></a>s. The goal is to use interned values, represented as numbers, in the polonius computations. </p>
+<p>These generic types of facts are the concepts Polonius manipulates: abstract <code>origins</code> containing <code>loans</code> at <code>points</code> in the CFG (in the liveness computation, and move/overwrite analysis, there are also: <code>variables</code> and <code>paths</code>), and the relations are their semantics (including the specific relationships between the different facts). More details about these atoms can be found in their <a href="./atoms.html">dedicated chapter</a>.</p>
+<p>Let's start with the simplest relation: the representation of the Control Flow Graph, in the <code>cfg_edge</code> relation.</p>
+<h3 id="1-cfg_edge"><a class="header" href="#1-cfg_edge">1. <code>cfg_edge</code></a></h3>
+<p><code>cfg_edge(point1, point2)</code>: as its name suggests, this relation stores that there's a CFG edge between the point <code>point1</code> and the point <code>point2</code>.</p>
+<p>For each MIR statement location, 2 Polonius points are generated: the &quot;Start&quot; points and the &quot;Mid&quot; points (some of the other Polonius inputs will later be recorded at each of the points). These 2 points are linked by an edge recorded in this relation.</p>
+<p>Then, another edge will be recorded, linking this MIR statement to its successor statement(s): from the mid point of the current location to the start point of the successor location. Even though it's encoded differently in MIR, this will similarly apply when the successor location is in another block, linking the mid point of the current location to the start point of the successor block's starting location.</p>
+<p>For example, for this MIR (edited from the example for clarity, and to only show the parts related to the CFG):</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>bb0: {
+  ...          // bb0[0]
+  ...          // bb0[1]
+  goto -&gt; bb3; // bb0[2]
+}
+
+...
+
+bb3: {
+  ... // bb3[0]
+}
+
+<span class="boring">}
+</span></code></pre></pre>
+<p>we will record these input facts (as mentioned before, they'll be interned) in the <code>cfg_edge</code> relation, shown here as pseudo Rust:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>cfg_edge = vec![
+  // statement at location bb0[0]:
+  (bb0-0-start, bb0-0-mid),
+  (bb0-0-mid, bb0-1-start),
+  
+  // statement at location bb0[1]:
+  (bb0-1-start, bb0-1-mid),
+  (bb0-1-mid, bb0-2-start),
+  
+  // terminator at location bb0[2]:
+  (bb0-2-start, bb0-2-mid),
+  (bb0-2-mid, bb3-0-start),
+];
+<span class="boring">}
+</span></code></pre></pre>
+<h3 id="2-loan_issued_at"><a class="header" href="#2-loan_issued_at">2. <code>loan_issued_at</code></a></h3>
+<p><code>loan_issued_at(origin, loan, point)</code>: this relation stores that the loan <code>loan</code> was &quot;issued&quot; at the given point <code>point</code>, creating a reference with the origin <code>origin</code>. The origin <code>origin</code> may refer to data from loan <code>loan</code> from the point <code>point</code> and onwards (this is usually the point <em>after</em> a borrow rvalue). The origin in which the loan is issued is called the &quot;issuing origin&quot; (but has been called <code>borrow_region</code> historically, so you may still encounter this term in Polonius or rustc).</p>
+<p>For every borrow expression, a loan will be created and there will be a fact stored in this relation to link this loan to the origin of the borrow expression.</p>
+<p>For example, with:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut a = 0;
+let r = &amp;mut a; // this creates the loan L0
+//      ^ let's call this 'a
+<span class="boring">}
+</span></code></pre></pre>
+<p>there will be a <code>loan_issued_at</code> fact linking <code>L0</code> to <code>'a</code> at this point. This loan will flow along the CFG and the subset relationships between origins, and the computation will require that its terms are respected or it will generate an illegal access error.</p>
+<h3 id="3-placeholder-and-universal_region"><a class="header" href="#3-placeholder-and-universal_region">3. <code>placeholder</code> (and <code>universal_region</code>)</a></h3>
+<p><code>placeholder(origin, loan)</code>: stores that the <code>origin</code> is a placeholder origin, with its associated placeholder loan <code>loan</code> (<code>universal_region(origin)</code> currently still exists, describing the same thing about <code>origin</code>, without the loan, and is being phased out). These origins have been historically called different things, mostly in rustc, like &quot;universal region&quot; and &quot;free region&quot;, but represent origins that are not defined in the MIR body we're checking. They are parts of the caller of this function: its loans are unknown to the current function and it cannot make assumptions about the origin (besides the relationships it may have with different placeholder origins, as we'll see below for the <code>known_placeholder_subset</code> relation). For computations where a loan from these placeholders can be useful (e.g. the illegal subset relationships errors), the associated placeholder loan can be used.</p>
+<p>Those are the default placeholder origins (<code>'static</code>) and the ones defined on functions which are generic over a lifetime. For example, with</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn my_function&lt;'a, 'b&gt;(x: &amp;'a u32, y: &amp;'b u32) {
+    ...
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>the <code>placeholder</code> relation will also contain facts for <code>'a</code>, and <code>'b</code>.</p>
+<h3 id="4-loan_killed_at"><a class="header" href="#4-loan_killed_at">4. <code>loan_killed_at</code></a></h3>
+<p><code>loan_killed_at(loan, point)</code>: this relation stores that a prefix of the path borrowed in loan <code>loan</code> is assigned/overwritten at the point <code>point</code>. This indicates that the path borrowed by the <code>loan</code> has changed in some way that the loan no longer needs to be tracked. (In particular, mutations to the path that was borrowed no longer invalidate the loan)</p>
+<p>For example, with:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut a = 1;
+let mut b = 2;
+let mut q = &amp;mut a;
+let r = &amp;mut *q; // loan L0 of `*q`
+// `q` can't be used here, one has to go through `r`
+q = &amp;mut b; // killed(L0)
+// `q` and `r` can be used here
+<span class="boring">}
+</span></code></pre></pre>
+<p>the loan <code>L0</code> will be &quot;killed&quot; by the assignment, and this fact stored in the <code>loan_killed_at</code> relation. When we compute which loans origins contain along the CFG, the <code>loan_killed_at</code> points will stop this loan's propagation to the next CFG point.</p>
+<h3 id="5-subset_base"><a class="header" href="#5-subset_base">5. <code>subset_base</code></a></h3>
+<p><code>subset_base(origin1, origin2, point)</code>: this relation stores that the origin <code>origin1</code> outlives origin <code>origin2</code> at the point <code>point</code>.</p>
+<p>This is the standard Rust syntax <code>'a: 'b</code> where the <em>lifetime</em> <code>'a</code> outlives the lifetime <code>'b</code>. From the point of view of origins as sets of loans, this is seen as a subset-relation: with all the loans in <code>'a</code> flowing into <code>'b</code>, <code>'a</code> contains a subset of the loans <code>'b</code> contains. </p>
+<p>The type system defines subtyping rules for references, which will create &quot;outlives&quot; facts to relate the reference type to the referent type as a <code>subset</code>.</p>
+<p>(The <code>_base</code> suffix comes from the fact this relation is not transitive, and will be the base of the transitive closure computation)</p>
+<p>For example:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let a: u32 = 1;
+let b: &amp;u32 = &amp;a;
+//            ^ let's call this 'a
+//     ^ and let's call this 'b
+<span class="boring">}
+</span></code></pre></pre>
+<p>To be valid, this last expression requires that the type <code>&amp;'a u32</code> is a subtype of <code>&amp;'b u32</code>. This requires <code>'a: 'b</code> and the <code>subset_base</code> relation will contain this basic fact that <code>'a</code> outlives / is a subset of / flows into <code>'b</code> at this point.</p>
+<h3 id="6-origin_live_at"><a class="header" href="#6-origin_live_at">6. <code>origin_live_at</code></a></h3>
+<p><code>origin_live_at(origin, point)</code>: this relation stores that the origin <code>origin</code> appears in a live variable at the point <code>point</code>.</p>
+<p>These facts are created by the liveness computation, and its facts and relations will be described later in a lot more detail. In the meantime, its implementation is in <a href="https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/liveness.rs">liveness.rs here</a>.</p>
+<h3 id="7-loan_invalidated_at"><a class="header" href="#7-loan_invalidated_at">7. <code>loan_invalidated_at</code></a></h3>
+<p><code>loan_invalidated_at(point, loan)</code>: this relation stores that a loan <code>loan</code> is invalidated by some action taking place at the point <code>point</code>.</p>
+<p>Loans have terms which must be respected: ensuring shared loans are only used to read and not write or mutate, or that a mutable loan is the only way to access a referent. An illegal access of the path borrowed by the loan is said to <em>invalidate</em> the terms of the loan, and this fact will be recorded in the <code>loan_invalidated_at</code> relation. Any such action on a <em>live</em> loan will be an error.</p>
+<p>Since the goal of the borrow checking analysis is to find these possible errors, this relation is important to the computation. Any loans it contains, and in turn, any origin containing those loans, are key facts the computation tracks.</p>
+<h3 id="8-known_placeholder_subset"><a class="header" href="#8-known_placeholder_subset">8. <code>known_placeholder_subset</code></a></h3>
+<p><code>known_placeholder_subset(origin1, origin2)</code>: this relation store the relationship between two placeholder origins, that the <code>origin1</code> placeholder origin is a subset of the <code>origin2</code> placeholder origin. They can be declared by the user on function declarations, or inferred via implied bounds.</p>
+<p>For example, the function:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foo&lt;'a, 'b: 'a, 'c&gt;(x: &amp;'c &amp;'a u32) {
+    ...
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>would have two <code>known_placeholder_subset</code> entries:</p>
+<ul>
+<li>one for the user-supplied subset <code>'b: 'a</code></li>
+<li>one for the <code>'a: 'c</code> implied bound from the <code>x</code> parameter</li>
+</ul>
+<p>Note that the transitive subset <code>'b: 'c</code> resulting from these two entries is not necessarily included explicitly in this relation. Polonius will infer all the transitive subsets to do its illegal subset relationships errors analysis: if the function analysis finds that two placeholders are related, and this was not declared in the known subsets, that will be an error.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../rules/atoms.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../rules/initialization.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="../rules/atoms.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="../rules/initialization.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

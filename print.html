@@ -1,0 +1,719 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Polonius</title>
+        
+        <meta name="robots" content="noindex" />
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="what_is_polonius.html"><strong aria-hidden="true">1.</strong> What is Polonius?</a></li><li class="chapter-item expanded "><a href="current_status.html"><strong aria-hidden="true">2.</strong> Current status and roadmap</a></li><li class="chapter-item expanded "><a href="getting_started.html"><strong aria-hidden="true">3.</strong> Getting started</a></li><li class="chapter-item expanded "><a href="generate_inputs.html"><strong aria-hidden="true">4.</strong> Generating inputs from rustc</a></li><li class="chapter-item expanded "><a href="rules.html"><strong aria-hidden="true">5.</strong> Rules</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="rules/atoms.html"><strong aria-hidden="true">5.1.</strong> Atoms</a></li><li class="chapter-item expanded "><a href="rules/relations.html"><strong aria-hidden="true">5.2.</strong> Relations</a></li><li class="chapter-item expanded "><a href="rules/initialization.html"><strong aria-hidden="true">5.3.</strong> Initialization analysis</a></li><li class="chapter-item expanded "><a href="rules/liveness.html"><strong aria-hidden="true">5.4.</strong> Liveness analysis</a></li><li class="chapter-item expanded "><a href="rules/loans.html"><strong aria-hidden="true">5.5.</strong> Loan analysis</a></li></ol></li><li class="chapter-item expanded "><a href="testing.html"><strong aria-hidden="true">6.</strong> Testing Polonius</a></li><li class="chapter-item expanded "><a href="see_also.html"><strong aria-hidden="true">7.</strong> See also</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">Polonius</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                        
+
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="what-is-polonius"><a class="header" href="#what-is-polonius">What is polonius?</a></h1>
+<p>This is a core library that models the borrow check. It implements the analysis
+<a href="http://smallcultfollowing.com/babysteps/blog/2018/04/27/an-alias-based-formulation-of-the-borrow-checker/">described in this blogpost</a>.</p>
+<h2 id="why-the-name-polonius"><a class="header" href="#why-the-name-polonius">Why the name &quot;Polonius&quot;?</a></h2>
+<p>The name comes from the famous quote <a href="https://literarydevices.net/neither-a-borrower-nor-a-lender-be/">&quot;Neither borrower nor lender
+be&quot;</a>, which comes from the character Polonius in Shakespeare's
+<em>Hamlet</em>.</p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="current-status"><a class="header" href="#current-status">Current status</a></h1>
+<p>Polonius has been provisionally integrated into rustc. You can run a nightly
+rustc with the <code>-Zpolonius</code> flag to try it out. However, it is not really
+ready for widespread use.</p>
+<p>Our current roadmap is as follows:</p>
+<ul>
+<li><strong>Complete the analysis:</strong> Polonius represents only a portion of the full
+borrow checker analysis. We would like to move as much as possible from the
+handwritten Rust code in rustc into the datalog-based approach of polonius.</li>
+<li><strong>Optimize:</strong> Naively implementing the polonius rules can be quite
+slow, so it's important that we optimize the rules and produce a
+more optimized version.  This will also likely require some special
+case optimizations to help with specific cases, such as large static
+constants.</li>
+</ul>
+<p>After those two steps are done, and presuming all goes well, we expect
+to replace the existing rustc borrow checker with the polonius
+crate. The crate will continue to exist.</p>
+<h2 id="want-to-help"><a class="header" href="#want-to-help">Want to help?</a></h2>
+<p>Check out the <a href="https://rust-lang.github.io/compiler-team/working-groups/polonius/">polonius working group</a> of the compiler team.</p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="want-to-run-the-code"><a class="header" href="#want-to-run-the-code">Want to run the code?</a></h1>
+<p>One of the goals with this repo is to experiment and compare different
+implementations of the same algorithm. You can run the analysis by using <code>cargo run</code>
+and you can choose the analysis with <code>-a</code>. So for example to run against an example
+extract from clap, you might do:</p>
+<pre><code class="language-bash">&gt; cargo +nightly run --release -- -a DatafrogOpt inputs/clap-rs/app-parser-{{impl}}-add_defaults/
+    Finished release [optimized] target(s) in 0.05 secs
+     Running `target/release/borrow-check 'inputs/clap-rs/app-parser-{{impl}}-add_defaults/'`
+--------------------------------------------------
+Directory: inputs/clap-rs/app-parser-{{impl}}-add_defaults/
+Time: 3.856s
+</code></pre>
+<p>You could also try <code>-a Naive</code> to get the naive rules (more readable,
+slower) -- these are the exact rules described in <a href="http://smallcultfollowing.com/babysteps/blog/2018/04/27/an-alias-based-formulation-of-the-borrow-checker/">the
+blogpost</a>. You can also use <code>-a LocationInsensitive</code> to use a
+location insensitive analysis (faster, but may yield spurious errors).</p>
+<p>By default, <code>cargo run</code> just prints timing. If you also want to see
+the results, try <code>--show-tuples</code> (which will show errors) and maybe
+<code>-v</code> (to show more intermediate computations). You can supply <code>--help</code>
+to get more docs.</p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="how-to-generate-your-own-inputs"><a class="header" href="#how-to-generate-your-own-inputs">How to generate your own inputs</a></h1>
+<p>To run the borrow checker on an input, you first need to generate the
+input facts.  For that, you will need to run rustc with the
+<code>-Znll-facts</code> option:</p>
+<pre><code>&gt; rustc -Znll-facts inputs/issue-47680/issue-47680.rs
+</code></pre>
+<p>Or, for generating the input facts of a crate using the <code>#![feature(nll)]</code> flag:</p>
+<pre><code>&gt; cargo rustc -- -Znll-facts
+</code></pre>
+<p>This will generate a <code>nll-facts</code> directory with one subdirectory per function:</p>
+<pre><code class="language-bash">&gt; ls -F nll-facts
+{{impl}}-maybe_next/  main/
+</code></pre>
+<p>You can then run on these directories.</p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="rules"><a class="header" href="#rules">Rules</a></h1>
+<p>These chapters document and explain the Polonius rules, primarily in
+datalog form.</p>
+<p>First, we'll describe the <a href="./rules/atoms.html">atoms</a>, and the <a href="./rules/relations.html">relations</a> they are stored in. Then, we'll look at the polonius computation in more detail. It's a pipeline consisting of multiple steps and analyses:</p>
+<ul>
+<li><a href="./rules/initialization.html">Initialization analysis</a> will compute move and initialization errors, as well as the initialization and uninitialization data used by the next step.</li>
+<li><a href="./rules/liveness.html">Liveness analysis</a> will compute which origins are live at which points in the control flow graph, used by the next step.</li>
+<li><a href="./rules/loans.html">Loan analysis</a> (the core of &quot;borrow checking&quot;) will compute illegal access errors, and illegal subset relationships errors. This is currently done with different variants (with different datalog rules) which will be described in that section.</li>
+</ul>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="atoms"><a class="header" href="#atoms">Atoms</a></h1>
+<p>Polonius defines the following <strong>atoms</strong>. To Polonius, these are
+opaque identifiers that identify particular things within the input
+program (literally they are newtype'd integers). Their meaning and
+relationships come entirely from the input relations.</p>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<p>We'll use this snippet of Rust code to illustrate the various kinds of
+atoms that can exist.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let x = (vec![22], vec![44]);
+let y = &amp;x.1;
+let z = x.0;
+drop(y);
+<span class="boring">}
+</span></code></pre></pre>
+<h2 id="variables"><a class="header" href="#variables">Variables</a></h2>
+<p>A <strong>variable</strong> represents a user variable defined by the Rust source
+code. In our snippet, <code>x</code>, <code>y</code>, and <code>z</code> are variables. Other kinds of
+variables include parameters.</p>
+<h2 id="path"><a class="header" href="#path">Path</a></h2>
+<p>A <strong>path</strong> indicates a path through memory to a memory location --
+these roughly correspond to <strong>places</strong> in MIR, although we only
+support a subset of the full places (that is, every MIR place maps to
+a Path, but sometimes a single Path maps back to multiple MIR places).</p>
+<p>Each path begins with a variable (e.g., <code>x</code>) but can be extended with
+fields (e.g., <code>x.1</code>), with an &quot;index&quot; (e.g., <code>x[]</code>) or with a deref <code>*x</code>.
+Note that the index paths (<code>x[]</code>) don't track the actual index that was
+accessed, since the borrow check treats all indices as equivalent.</p>
+<p>The grammar for paths would thus look something like this:</p>
+<pre><code>Path = Variable
+     | Path &quot;.&quot; Field // field access
+     | Path &quot;[&quot; &quot;]&quot;   // index
+     | &quot;*&quot; Path
+</code></pre>
+<p>Each path has a distinct atom associated with it. So there would be an
+atom P1 for the path <code>x</code> and another atom P2 for the path <code>x.0</code>.
+These atoms are related to one another through the <code>path_parent</code>
+relation.</p>
+<h2 id="node"><a class="header" href="#node">Node</a></h2>
+<p>Nodes are, well, <em>nodes</em> in the control-flow graph. They are related
+to one another by the <code>cfg_edge</code> relation.</p>
+<p>For each statement (resp. terminator) S in the MIR, there are actually
+two associated nodes. One represents the &quot;start&quot; of S -- before S has
+begun executing -- the other is called the &quot;mid node&quot; -- which
+represents the point where S &quot;takes effect&quot;. Each start node has
+exactly one successor, the mid node.</p>
+<h2 id="loans"><a class="header" href="#loans">Loans</a></h2>
+<p>A <strong>loan</strong> represents some borrow that occurs in the source.  Each
+loan has an associated path that was borrowed along with a mutability.
+So, in our example, there would be a single loan, for the <code>&amp;x.1</code>
+expression.</p>
+<h2 id="origins"><a class="header" href="#origins">Origins</a></h2>
+<p>An <strong>origin</strong> is what it typically called in Rust a <strong>lifetime</strong>. In
+Polonius, an <strong>origin</strong> refers to the set of loans from which a
+reference may have been created.</p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="input-relations"><a class="header" href="#input-relations">Input relations</a></h1>
+<p>Polonius computes its analyses starting from &quot;input facts&quot;, which can be seen as a little database of information about a piece of Rust code (most often: a function).</p>
+<p>In this analogy, the database is the <a href="https://github.com/rust-lang/polonius/blob/2cf8336f7ff9932270160a392ca5be3c804b7f41/polonius-engine/src/facts.rs#L6-L81"><code>AllFacts</code> struct</a>, which contains all the data in tables (or relations), here as a handful of <code>Vec</code>s of rows. The table rows are these &quot;facts&quot;: this terminology comes from Datalog, which Polonius uses to do its computations (and the reason for the <code>rustc</code> flag <a href="rules/../generate_inputs.html">outputting this data</a> being named <code>-Znll-facts</code>, and the files themselves <code>*.facts</code>).</p>
+<p>In order to be used in various contexts (mainly: in-memory from <code>rustc</code>, and from on-disk test files in the Polonius repository) this structure is generic over the types of facts, only requiring them to be <a href="https://github.com/rust-lang/polonius/blob/2cf8336f7ff9932270160a392ca5be3c804b7f41/polonius-engine/src/facts.rs#L108-L112"><code>Atom</code></a>s. The goal is to use interned values, represented as numbers, in the polonius computations. </p>
+<p>These generic types of facts are the concepts Polonius manipulates: abstract <code>origins</code> containing <code>loans</code> at <code>points</code> in the CFG (in the liveness computation, and move/overwrite analysis, there are also: <code>variables</code> and <code>paths</code>), and the relations are their semantics (including the specific relationships between the different facts). More details about these atoms can be found in their <a href="rules/./atoms.html">dedicated chapter</a>.</p>
+<p>Let's start with the simplest relation: the representation of the Control Flow Graph, in the <code>cfg_edge</code> relation.</p>
+<h3 id="1-cfg_edge"><a class="header" href="#1-cfg_edge">1. <code>cfg_edge</code></a></h3>
+<p><code>cfg_edge(point1, point2)</code>: as its name suggests, this relation stores that there's a CFG edge between the point <code>point1</code> and the point <code>point2</code>.</p>
+<p>For each MIR statement location, 2 Polonius points are generated: the &quot;Start&quot; points and the &quot;Mid&quot; points (some of the other Polonius inputs will later be recorded at each of the points). These 2 points are linked by an edge recorded in this relation.</p>
+<p>Then, another edge will be recorded, linking this MIR statement to its successor statement(s): from the mid point of the current location to the start point of the successor location. Even though it's encoded differently in MIR, this will similarly apply when the successor location is in another block, linking the mid point of the current location to the start point of the successor block's starting location.</p>
+<p>For example, for this MIR (edited from the example for clarity, and to only show the parts related to the CFG):</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>bb0: {
+  ...          // bb0[0]
+  ...          // bb0[1]
+  goto -&gt; bb3; // bb0[2]
+}
+
+...
+
+bb3: {
+  ... // bb3[0]
+}
+
+<span class="boring">}
+</span></code></pre></pre>
+<p>we will record these input facts (as mentioned before, they'll be interned) in the <code>cfg_edge</code> relation, shown here as pseudo Rust:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>cfg_edge = vec![
+  // statement at location bb0[0]:
+  (bb0-0-start, bb0-0-mid),
+  (bb0-0-mid, bb0-1-start),
+  
+  // statement at location bb0[1]:
+  (bb0-1-start, bb0-1-mid),
+  (bb0-1-mid, bb0-2-start),
+  
+  // terminator at location bb0[2]:
+  (bb0-2-start, bb0-2-mid),
+  (bb0-2-mid, bb3-0-start),
+];
+<span class="boring">}
+</span></code></pre></pre>
+<h3 id="2-loan_issued_at"><a class="header" href="#2-loan_issued_at">2. <code>loan_issued_at</code></a></h3>
+<p><code>loan_issued_at(origin, loan, point)</code>: this relation stores that the loan <code>loan</code> was &quot;issued&quot; at the given point <code>point</code>, creating a reference with the origin <code>origin</code>. The origin <code>origin</code> may refer to data from loan <code>loan</code> from the point <code>point</code> and onwards (this is usually the point <em>after</em> a borrow rvalue). The origin in which the loan is issued is called the &quot;issuing origin&quot; (but has been called <code>borrow_region</code> historically, so you may still encounter this term in Polonius or rustc).</p>
+<p>For every borrow expression, a loan will be created and there will be a fact stored in this relation to link this loan to the origin of the borrow expression.</p>
+<p>For example, with:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut a = 0;
+let r = &amp;mut a; // this creates the loan L0
+//      ^ let's call this 'a
+<span class="boring">}
+</span></code></pre></pre>
+<p>there will be a <code>loan_issued_at</code> fact linking <code>L0</code> to <code>'a</code> at this point. This loan will flow along the CFG and the subset relationships between origins, and the computation will require that its terms are respected or it will generate an illegal access error.</p>
+<h3 id="3-placeholder-and-universal_region"><a class="header" href="#3-placeholder-and-universal_region">3. <code>placeholder</code> (and <code>universal_region</code>)</a></h3>
+<p><code>placeholder(origin, loan)</code>: stores that the <code>origin</code> is a placeholder origin, with its associated placeholder loan <code>loan</code> (<code>universal_region(origin)</code> currently still exists, describing the same thing about <code>origin</code>, without the loan, and is being phased out). These origins have been historically called different things, mostly in rustc, like &quot;universal region&quot; and &quot;free region&quot;, but represent origins that are not defined in the MIR body we're checking. They are parts of the caller of this function: its loans are unknown to the current function and it cannot make assumptions about the origin (besides the relationships it may have with different placeholder origins, as we'll see below for the <code>known_placeholder_subset</code> relation). For computations where a loan from these placeholders can be useful (e.g. the illegal subset relationships errors), the associated placeholder loan can be used.</p>
+<p>Those are the default placeholder origins (<code>'static</code>) and the ones defined on functions which are generic over a lifetime. For example, with</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn my_function&lt;'a, 'b&gt;(x: &amp;'a u32, y: &amp;'b u32) {
+    ...
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>the <code>placeholder</code> relation will also contain facts for <code>'a</code>, and <code>'b</code>.</p>
+<h3 id="4-loan_killed_at"><a class="header" href="#4-loan_killed_at">4. <code>loan_killed_at</code></a></h3>
+<p><code>loan_killed_at(loan, point)</code>: this relation stores that a prefix of the path borrowed in loan <code>loan</code> is assigned/overwritten at the point <code>point</code>. This indicates that the path borrowed by the <code>loan</code> has changed in some way that the loan no longer needs to be tracked. (In particular, mutations to the path that was borrowed no longer invalidate the loan)</p>
+<p>For example, with:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut a = 1;
+let mut b = 2;
+let mut q = &amp;mut a;
+let r = &amp;mut *q; // loan L0 of `*q`
+// `q` can't be used here, one has to go through `r`
+q = &amp;mut b; // killed(L0)
+// `q` and `r` can be used here
+<span class="boring">}
+</span></code></pre></pre>
+<p>the loan <code>L0</code> will be &quot;killed&quot; by the assignment, and this fact stored in the <code>loan_killed_at</code> relation. When we compute which loans origins contain along the CFG, the <code>loan_killed_at</code> points will stop this loan's propagation to the next CFG point.</p>
+<h3 id="5-subset_base"><a class="header" href="#5-subset_base">5. <code>subset_base</code></a></h3>
+<p><code>subset_base(origin1, origin2, point)</code>: this relation stores that the origin <code>origin1</code> outlives origin <code>origin2</code> at the point <code>point</code>.</p>
+<p>This is the standard Rust syntax <code>'a: 'b</code> where the <em>lifetime</em> <code>'a</code> outlives the lifetime <code>'b</code>. From the point of view of origins as sets of loans, this is seen as a subset-relation: with all the loans in <code>'a</code> flowing into <code>'b</code>, <code>'a</code> contains a subset of the loans <code>'b</code> contains. </p>
+<p>The type system defines subtyping rules for references, which will create &quot;outlives&quot; facts to relate the reference type to the referent type as a <code>subset</code>.</p>
+<p>(The <code>_base</code> suffix comes from the fact this relation is not transitive, and will be the base of the transitive closure computation)</p>
+<p>For example:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let a: u32 = 1;
+let b: &amp;u32 = &amp;a;
+//            ^ let's call this 'a
+//     ^ and let's call this 'b
+<span class="boring">}
+</span></code></pre></pre>
+<p>To be valid, this last expression requires that the type <code>&amp;'a u32</code> is a subtype of <code>&amp;'b u32</code>. This requires <code>'a: 'b</code> and the <code>subset_base</code> relation will contain this basic fact that <code>'a</code> outlives / is a subset of / flows into <code>'b</code> at this point.</p>
+<h3 id="6-origin_live_at"><a class="header" href="#6-origin_live_at">6. <code>origin_live_at</code></a></h3>
+<p><code>origin_live_at(origin, point)</code>: this relation stores that the origin <code>origin</code> appears in a live variable at the point <code>point</code>.</p>
+<p>These facts are created by the liveness computation, and its facts and relations will be described later in a lot more detail. In the meantime, its implementation is in <a href="https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/liveness.rs">liveness.rs here</a>.</p>
+<h3 id="7-loan_invalidated_at"><a class="header" href="#7-loan_invalidated_at">7. <code>loan_invalidated_at</code></a></h3>
+<p><code>loan_invalidated_at(point, loan)</code>: this relation stores that a loan <code>loan</code> is invalidated by some action taking place at the point <code>point</code>.</p>
+<p>Loans have terms which must be respected: ensuring shared loans are only used to read and not write or mutate, or that a mutable loan is the only way to access a referent. An illegal access of the path borrowed by the loan is said to <em>invalidate</em> the terms of the loan, and this fact will be recorded in the <code>loan_invalidated_at</code> relation. Any such action on a <em>live</em> loan will be an error.</p>
+<p>Since the goal of the borrow checking analysis is to find these possible errors, this relation is important to the computation. Any loans it contains, and in turn, any origin containing those loans, are key facts the computation tracks.</p>
+<h3 id="8-known_placeholder_subset"><a class="header" href="#8-known_placeholder_subset">8. <code>known_placeholder_subset</code></a></h3>
+<p><code>known_placeholder_subset(origin1, origin2)</code>: this relation store the relationship between two placeholder origins, that the <code>origin1</code> placeholder origin is a subset of the <code>origin2</code> placeholder origin. They can be declared by the user on function declarations, or inferred via implied bounds.</p>
+<p>For example, the function:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foo&lt;'a, 'b: 'a, 'c&gt;(x: &amp;'c &amp;'a u32) {
+    ...
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>would have two <code>known_placeholder_subset</code> entries:</p>
+<ul>
+<li>one for the user-supplied subset <code>'b: 'a</code></li>
+<li>one for the <code>'a: 'c</code> implied bound from the <code>x</code> parameter</li>
+</ul>
+<p>Note that the transitive subset <code>'b: 'c</code> resulting from these two entries is not necessarily included explicitly in this relation. Polonius will infer all the transitive subsets to do its illegal subset relationships errors analysis: if the function analysis finds that two placeholders are related, and this was not declared in the known subsets, that will be an error.</p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="initialization-analysis"><a class="header" href="#initialization-analysis">Initialization analysis</a></h1>
+<p><strong>These rules are not yet fully merged.</strong></p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="liveness-analysis"><a class="header" href="#liveness-analysis">Liveness analysis</a></h1>
+<p><strong>These rules are not yet described.</strong></p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="loan-analysis"><a class="header" href="#loan-analysis">Loan analysis</a></h1>
+<p>Loan analysis is the heart of the borrow checker, and will compute:</p>
+<ul>
+<li>illegal access errors: an action on a loan, that is illegal to perform</li>
+<li>illegal subset relations errors: missing relationships between placeholder origins</li>
+</ul>
+<p>This is done in multiple variants, whose goals are different: performance, readability, tests and validation.</p>
+<p>Broadly speaking, the goals of the analysis are 1) to track loans:</p>
+<ul>
+<li>from the point and origin in which they are issued, to the points where they are invalidated</li>
+<li>flowing from origin to origin at a single point, via their <code>subset</code> relationships</li>
+<li>flowing from point to point in the CFG, according to the origins' liveness (stopping at points where a loan is killed)</li>
+</ul>
+<p>And 2) to track undeclared relationships between placeholder origins.</p>
+<p>Any live loan which is invalidated will be an illegal access error, any placeholder which flows into another placeholder unexpectedly will be an illegal subset relation error.</p>
+<h3 id="inputs"><a class="header" href="#inputs">Inputs</a></h3>
+<p>The input relations will be described below, but the <a href="rules/./relations.html">dedicated page</a> will have more information about them.</p>
+<pre><code class="language-prolog">// Indicates that the `loan` was &quot;issued&quot; at the given `point`, creating a
+// reference with the `origin`. Effectively, `origin` may refer to data from
+// `loan` starting at `point` (this is usually the point *after* a borrow rvalue).
+.decl loan_issued_at(Origin:origin, Loan:loan, Point:point)
+.input loan_issued_at
+
+// When some prefix of the path borrowed at `loan` is assigned at `point`.
+// Indicates that the path borrowed by the `loan` has changed in some way that the
+// loan no longer needs to be tracked. (In particular, mutations to the path that
+// was borrowed no longer invalidate the loan)
+.decl loan_killed_at(Loan:loan, Point:point)
+.input loan_killed_at
+
+// Indicates that the `loan` is invalidated by some action
+// taking place at `point`; if any origin that references this loan is live,
+// this is an error.
+.decl loan_invalidated_at(Loan:loan, Point:point)
+.input loan_invalidated_at
+
+// When we require `origin1@point: origin2@point`.
+// Indicates that `origin1 &lt;= origin2` -- i.e., the set of loans in `origin1`
+// are a subset of those in `origin2`.
+.decl subset_base(Origin1:origin, Origin2:origin, Point:point)
+.input subset_base
+
+// Describes a placeholder `origin`, with its associated placeholder `loan`.
+.decl placeholder(Origin:origin, Loan:loan)
+.input placeholder
+
+// These reflect the `'a: 'b` relations that are either declared by the user on
+// function declarations or which are inferred via implied bounds.
+// For example: `fn foo&lt;'a, 'b: 'a, 'c&gt;(x: &amp;'c &amp;'a u32)` would have two entries:
+// - one for the user-supplied subset `'b: 'a`
+// - and one for the `'a: 'c` implied bound from the `x` parameter,
+// (note that the transitive relation `'b: 'c` is not necessarily included
+// explicitly, but rather inferred by polonius).
+.decl known_placeholder_subset(Origin1:origin, Origin2:origin)
+.input known_placeholder_subset
+</code></pre>
+<p>The datalog rules below are considered the &quot;naive&quot; implementation, as it computes the whole transitive closure of the subset relation, but are easy to describe and explain. They are implemented using the datafrog engine in the <a href="https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/naive.rs">Naive variant</a>.</p>
+<p>Some trivial differences exist with the implementation:</p>
+<ul>
+<li>the use of the <code>;</code> alternative operator in the rules</li>
+<li>some API limitations about joins in the implementation, sometimes requiring intermediate steps per join (and these can sometimes be shared between different rules)</li>
+</ul>
+<h3 id="subsets-between-origins"><a class="header" href="#subsets-between-origins">Subsets between origins</a></h3>
+<p>The rules below compute the complete graph of subsets between origins: starting from the non-transitive subsets, we close over this relation at a given point in the CFG (regardless of liveness). Liveness is then taken into account to propagate these transitive subsets along the CFG: if an origin flows into another at a given point, and they both are live at the successor points (reminder: placeholder origins are considered live at all points), the relationship is propagated to the successor points.</p>
+<pre><code class="language-prolog">.decl subset(Origin1:origin, Origin2:origin, Point:point)
+
+// R1: the initial subsets are the non-transitive `subset_base` static input
+subset(Origin1, Origin2, Point) :-
+  subset_base(Origin1, Origin2, Point).
+
+// R2: compute the subset transitive closure, at a given point
+subset(Origin1, Origin3, Point) :-
+  subset(Origin1, Origin2, Point),
+  subset(Origin2, Origin3, Point).
+
+// R3: propagate subsets along the CFG, according to liveness
+subset(Origin1, Origin2, TargetPoint) :-
+  subset(Origin1, Origin2, SourcePoint),
+  cfg_edge(SourcePoint, TargetPoint),
+  (origin_live_on_entry(Origin1, TargetPoint); placeholder(Origin1, _)),
+  (origin_live_on_entry(Origin2, TargetPoint); placeholder(Origin2, _)).
+</code></pre>
+<h3 id="the-origins-contain-loans"><a class="header" href="#the-origins-contain-loans">The origins contain loans</a></h3>
+<p>The rules below compute what loans are contained in which origins, at given points of the CFG: starting from the &quot;issuing point and origin&quot;, a loan is propagated via the subsets computed above, at a given point in the CFG. Liveness is then taken into account to propagate these loans along the CFG: if a loan is contained in an origin at a given point, and that the origin is live at the successor points, the loan is propagated to the successor points. A subtlety here is that there are points in the CFG where a loan can be killed, and that will stop propagation. Rule 6 uses both liveness and kill points to decide whether the loan should be propagated further in the CFG.</p>
+<pre><code class="language-prolog">.decl origin_contains_loan_on_entry(Origin:origin, Loan:loan, Point:point)
+
+// R4: the issuing origins are the ones initially containing loans
+origin_contains_loan_on_entry(Origin, Loan, Point) :-
+  loan_issued_at(Origin, Loan, Point).
+
+// R5: propagate loans within origins, at a given point, according to subsets
+origin_contains_loan_on_entry(Origin2, Loan, Point) :-
+  origin_contains_loan_on_entry(Origin1, Loan, Point),
+  subset(Origin1, Origin2, Point).
+
+// R6: propagate loans along the CFG, according to liveness
+origin_contains_loan_on_entry(Origin, Loan, TargetPoint) :-
+  origin_contains_loan_on_entry(Origin, Loan, SourcePoint),
+  !loan_killed_at(Loan, SourcePoint),
+  cfg_edge(SourcePoint, TargetPoint),
+  (origin_live_on_entry(Origin, TargetPoint); placeholder(Origin, _)).
+</code></pre>
+<h3 id="loan-liveness-and-illegal-access-errors"><a class="header" href="#loan-liveness-and-illegal-access-errors">Loan liveness, and illegal access errors</a></h3>
+<p>With the information computed above, we can compute illegal accesses errors. It is an error to invalidate a loan that is live at a given point. A loan is live at a point if it is contained in an origin that is live at that point.</p>
+<pre><code class="language-prolog">.decl loan_live_at(Loan:loan, Point:point)
+
+// R7: compute whether a loan is live at a given point, i.e. whether it is
+// contained in a live origin at this point
+loan_live_at(Loan, Point) :-
+  origin_contains_loan_on_entry(Origin, Loan, Point),
+  (origin_live_on_entry(Origin, Point); placeholder(Origin, _)).
+
+.decl errors(Loan:loan, Point:point)
+
+// R8: compute illegal access errors, i.e. an invalidation of a live loan
+errors(Loan, Point) :-
+  loan_invalidated_at(Loan, Point),
+  loan_live_at(Loan, Point).
+</code></pre>
+<h3 id="placeholder-subsets-and-illegal-subset-relations-errors"><a class="header" href="#placeholder-subsets-and-illegal-subset-relations-errors">Placeholder subsets, and illegal subset relations errors</a></h3>
+<p>These errors can be computed differently depending on the variant, but the goal is the same: if the analysis detects that a placeholder origin ultimately flows into another placeholder origin, that relationship needs to be declared or it is an error.</p>
+<p>The <code>Naive</code> rules variant computes the complete subset transitive closure and can more easily detect whether one of these facts links two placeholder origins. The <code>LocationInsensitive</code> rules variant does not compute transitive subsets at all, and uses loan propagation to detect these errors (if a placeholder loan flows into a placeholder origin). The <code>Opt</code> optimized rules variant only computes the transitive closure of some origins according to their liveness and possible contribution to any error (mostly the ones dying along an edge, and the origins they can reach), and tracks the transitive subsets of placeholders explicitly.</p>
+<pre><code class="language-prolog">.decl subset_errors(Origin1:origin, Origin2:origin, Point:point)
+
+// R9: compute illegal subset relations errors, i.e. the undeclared subsets
+// between two placeholder origins.
+subset_errors(Origin1, Origin2, Point) :-
+  subset(Origin1, Origin2, Point),
+  placeholder_origin(Origin1),
+  placeholder_origin(Origin2),
+  !known_placeholder_subset(Origin1, Origin2).
+</code></pre>
+<h3 id="location-insensitive-analysis"><a class="header" href="#location-insensitive-analysis">Location Insensitive analysis</a></h3>
+<p>The rules above document the <code>Naive</code> variant of loan analysis, as it is conceptually simple and describes all the important parts computed by the Polonius model. This variant is &quot;naive&quot; in the sense that to stay clear and simple, the rules compute more things than strictly required. In particular, it computes the complete transitive subsets of all origins, as well as the loans contained by each origin at every point of the CFG.</p>
+<p>In practice, different &quot;grades&quot; of borrow-checking can be useful: each with different levels of precision in what it accepts and with different computational complexity requirements. The lowest of such grades, the <code>LocationInsensitive</code> variant, trades off precision for speed by ignoring both the location where subsets happen, and the origins' contents at the CFG points. The idea is: if an analysis would find no error when ignoring path- and flow-sensitivity, then the full analysis would find no error either. If it does find potential errors, then the full analysis will find a subset of these location-insensitive errors.</p>
+<p>This can be used as a quick pre-pass: if there are no errors, a full, expensive, analysis does not need to run, otherwise, only the loans where potential errors occur would need to be fully checked to remove false positives.</p>
+<p>The inputs are the same as the <code>Naive</code> variant, but ignore the CFG points from the <code>subset</code>s. Subsets are not tracked, and are used to approximate loan propagation inside origins (regardless of liveness and location-sensitivity) in <code>origin_contains_loan</code>:</p>
+<pre><code class="language-prolog">.decl subset(Origin1:origin, Origin2:origin)
+
+// R1: the subsets are the non-transitive `subset_base` static input,
+// with their location stripped.
+subset(Origin1, Origin2) :-
+  subset_base(Origin1, Origin2, _).
+
+.decl origin_contains_loan(Origin:origin, Loan:loan)
+
+// R2: the issuing origins are the ones initially containing loans.
+origin_contains_loan(Origin, Loan) :-
+  loan_issued_at(Origin, Loan, _).
+
+// R3: the placeholder origins also contain their placeholder loan.
+origin_contains_loan(Origin, Loan) :-
+  placeholder_loan(Origin, Loan).
+
+// R4: propagate the loans from the origins to their subsets.
+origin_contains_loan(Origin2, Loan) :-
+  origin_contains_loan(Origin1, Loan),
+  subset(Origin1, Origin2).
+
+.decl loan_live_at(Loan:loan, Point:point)
+
+// R5a: Approximate loan liveness. If an origin is live at a given
+// point, and it contains a loan *anywhere* in the CFG, that loan is
+// considered live at that point.
+loan_live_at(Loan, Point) :-
+  origin_contains_loan(Origin, Loan),
+  (origin_live_on_entry(Origin, Point); placeholder_origin(Origin)).
+
+.decl potential_errors(Loan:loan, Point:point)
+
+// R5b: Compute potential illegal access errors, i.e. invalidations
+// of live loans.
+potential_errors(Loan, Point) :-
+  loan_invalidated_at(Loan, Point),
+  loan_live_at(Loan, Point).
+</code></pre>
+<p>Note: rules &quot;5a&quot; and &quot;5b&quot; above are named to match <a href="https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/location_insensitive.rs">the implementation</a> which computes <code>potential_errors</code> as a single &quot;rule 5&quot; without materializing the <code>loan_live_at</code> intermediate relation of &quot;rule 5a&quot;.</p>
+<p>Illegal subset relation errors (which are by definition about &quot;subsets&quot;) can still be computed by propagating the placeholder loans, and detecting when they unexpectedly flow into another placeholder origin: one where this specific relationship between the two placeholders was not declared.</p>
+<pre><code class="language-prolog">.decl potential_subset_errors(Origin1:origin, Origin2:origin)
+
+// R6: compute potential illegal subset relations errors, i.e. the
+// placeholder loans which ultimately flowed into another placeholder
+// origin unexpectedly.
+potential_subset_errors(Origin1, Origin2) :-
+  placeholder(Origin1, Loan1),
+  placeholder(Origin2, _),
+  origin_contains_loan(Origin2, Loan1),
+  !placeholder_known_to_contain(Origin2, Loan1).
+</code></pre>
+<p>This requires a simple input equivalent to the transitive closure of <code>known_placeholder_subset</code>, tracking the placeholder loans a given placeholder origin is known to contain instead, and is computed like so:</p>
+<pre><code class="language-prolog">.decl placeholder_known_to_contain(Origin:origin, Loan:loan)
+
+placeholder_known_to_contain(Origin, Loan) :-
+  placeholder(Origin, Loan).
+
+placeholder_known_to_contain(Origin2, Loan1) :-
+  placeholder_known_to_contain(Origin1, Loan1),
+  known_placeholder_subset(Origin1, Origin2).
+</code></pre>
+<h3 id="to-be-continued"><a class="header" href="#to-be-continued">To be continued</a></h3>
+<p>In the current implementation, this quick <code>LocationInsensitive</code> filter is used as a pre-pass to another optimized variant, as part of <a href="https://github.com/rust-lang/polonius/blob/2cf8336f7ff9932270160a392ca5be3c804b7f41/polonius-engine/src/output/mod.rs#L42">the <code>Hybrid</code> algorithm</a>.</p>
+<p>A more detailed description of the rules in this <code>Opt</code> variant will be added later but it computes the same data as the <code>Naive</code> variant described above, more efficiently, by limiting where the subset transitive closure is computed: some origins are short-lived, or part of a subsection of the subset graph into which no loan ever flows, and therefore don't contribute to errors or loan propagation. There's no need to track these specific cases.</p>
+<p>In the meantime, <a href="https://github.com/rust-lang/polonius/blob/master/polonius-engine/src/output/datafrog_opt.rs">the implementation</a> documents the relations and rules it uses in its computation.</p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="testing-polonius"><a class="header" href="#testing-polonius">Testing Polonius</a></h1>
+<h2 id="rust-ui-tests-with-polonius-compare-mode"><a class="header" href="#rust-ui-tests-with-polonius-compare-mode">Rust UI Tests with Polonius Compare Mode</a></h2>
+<p>There is a mode of the Rust test suite that compares Polonius' output to the
+current NLL one. You can invoke it by using <code>--compare-mode polonius</code>. For
+example, the following will run the UI tests:</p>
+<pre><code>$ ./x.py test -i --stage 1 --compare-mode polonius src/test/ui
+</code></pre>
+<h2 id="polonius-own-unit-test"><a class="header" href="#polonius-own-unit-test">Polonius' Own Unit Test</a></h2>
+<p>(Not yet written, but this section should describe how to use <code>polonius-parser</code>
+to generate input for unit tests.)</p>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="see-also"><a class="header" href="#see-also">See also</a></h1>
+<p>There have been a number of blog posts related to Polonius as it evolves:</p>
+<ul>
+<li><a href="https://smallcultfollowing.com/babysteps/blog/2018/04/27/an-alias-based-formulation-of-the-borrow-checker/">An alias-based formulation of the borrow checker</a></li>
+<li><a href="https://smallcultfollowing.com/babysteps/blog/2019/01/17/polonius-and-region-errors/">Polonius and region errors</a></li>
+<li><a href="https://smallcultfollowing.com/babysteps/blog/2019/01/21/hereditary-harrop-region-constraints/">Polonius and the case of the hereditary harrop predicate</a></li>
+<li>... TODO add the rest ...</li>
+</ul>
+<p>The academic work &quot;Oxide&quot; is partially inspired by Polonius:</p>
+<ul>
+<li><a href="https://aaronweiss.us/pubs/draft19-oxide.pdf">Oxide</a> by Aaron Weiss, et al.</li>
+</ul>
+<p>A talk about Polonius was given by Niko Matsakis at the &quot;Rust Belt Rust&quot; 2019 Conference, &quot;Polonius: Either Borrower or Lender Be, but Responsibly&quot;:</p>
+<ul>
+<li>the video is available on the <a href="https://www.youtube.com/watch?v=_agDeiWek8w&amp;list=PLgC1L0fKd7UkVwjVlOySfMnn80Qs5TOLb&amp;index=5&amp;t=0s">conference's YouTube channel here</a></li>
+<li>the slides are <a href="https://nikomatsakis.github.io/rust-belt-rust-2019/">available here</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+        
+        <script type="text/javascript">
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+        
+        
+
+    </body>
+</html>
